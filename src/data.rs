@@ -34,11 +34,13 @@ pub struct CalibrationData {
     pub range_sw_err: i8,
 }
 
+/// Measurment data returned from the sensor
 #[derive(Debug)]
 pub struct MeasurmentData {
     pub temperature: f32,
     pub humidity: f32,
     pub pressure: f32,
+    /// is None if gas measurment is disabled
     pub gas_resistance: Option<f32>,
 }
 
