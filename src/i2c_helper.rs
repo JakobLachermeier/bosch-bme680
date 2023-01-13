@@ -196,7 +196,7 @@ where
         debug!("Setting config registers");
         self.set_registers_iter(pairs)?;
         if let Some(gas_conf) = &conf.gas_config {
-            self.set_gas_config(&gas_conf, &calibration_data)?;
+            self.set_gas_config(gas_conf, calibration_data)?;
         }
         Ok(current_conf)
     }
@@ -237,11 +237,11 @@ pub fn extract_calibration_data(coeff_buffer: [u8; 42]) -> CalibrationData {
     let par_p10 = coeff_buffer[22];
 
     // https://github.com/BoschSensortec/BME68x-Sensor-API/blob/master/bme68x.c#L1807
-    let par_h1 = ((coeff_buffer[BME68X_IDX_H1_MSB as usize] as u16) << 4) as u16
-        | ((coeff_buffer[BME68X_IDX_H1_LSB as usize]) as u16 & BME68X_BIT_H1_DATA_MSK) as u16;
+    let par_h1 = ((coeff_buffer[BME68X_IDX_H1_MSB as usize] as u16) << 4)
+        | ((coeff_buffer[BME68X_IDX_H1_LSB as usize]) as u16 & BME68X_BIT_H1_DATA_MSK);
     // https://github.com/BoschSensortec/BME68x-Sensor-API/blob/master/bme68x.c#L1810
-    let par_h2 = ((coeff_buffer[BME68X_IDX_H2_MSB as usize] as u16) << 4) as u16
-        | ((coeff_buffer[BME68X_IDX_H2_LSB as usize] as u16) >> 4) as u16;
+    let par_h2 = ((coeff_buffer[BME68X_IDX_H2_MSB as usize] as u16) << 4)
+        | ((coeff_buffer[BME68X_IDX_H2_LSB as usize] as u16) >> 4);
     let par_h3 = coeff_buffer[26] as i8;
     let par_h4 = coeff_buffer[27] as i8;
     let par_h5 = coeff_buffer[28] as i8;

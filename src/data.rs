@@ -44,7 +44,7 @@ pub struct MeasurmentData {
 
 pub fn calculate_temperature(adc_temp: u32, calibration_data: &CalibrationData) -> (f32, f32) {
     let temp_adc = adc_temp as f32;
-    let var_1 = ((temp_adc as f32 / 16384.) - (calibration_data.par_t1 as f32 / 1024.))
+    let var_1 = ((temp_adc / 16384.) - (calibration_data.par_t1 as f32 / 1024.))
         * calibration_data.par_t2 as f32;
     let var_2 = (((temp_adc / 131072.) - (calibration_data.par_t1 as f32 / 8192.))
         * ((temp_adc / 131072.) - (calibration_data.par_t1 as f32 / 8192.)))
@@ -74,8 +74,7 @@ pub fn calculate_pressure(adc_press: u32, calibration_data: &CalibrationData, t_
             * (calc_pres / 256.)
             * (calc_pres / 256.)
             * (calibration_data.par_p10 as f32 / 131072.);
-        calc_pres =
-            calc_pres + (var1 + var2 + var3 + (calibration_data.par_p7 as f32 * 128.)) / 16.;
+        calc_pres += (var1 + var2 + var3 + (calibration_data.par_p7 as f32 * 128.)) / 16.;
     } else {
         calc_pres = 0.;
     }
@@ -96,10 +95,12 @@ pub fn calculate_humidity(adc_hum: u16, calibration_data: &CalibrationData, t_fi
     let var3 = calibration_data.par_h6 as f32 / 16384.;
     let var4 = calibration_data.par_h7 as f32 / 2097152.;
     let mut calc_hum = var2 + ((var3 + (var4 * temp_comp)) * var2 * var2);
-    if calc_hum > 100. {
-        calc_hum = 100.;
-    } else if calc_hum < 0. {
-        calc_hum = 0.
-    }
+    calc_hum = calc_hum.clamp(0., 100.);
+    // Reference implemetation uses this.
+    // if calc_hum > 100. {
+    //     calc_hum = 100.;
+    // } else if calc_hum < 0. {
+    //     calc_hum = 0.
+    // }
     calc_hum
 }

@@ -61,17 +61,15 @@ impl Variant {
                 let var1 = 1340. + (5. * range_switching_error as f32);
                 let var2 = var1 * (1. + GAS_ARRAY_1[gas_range] / 100.);
                 let var3 = 1. + (GAS_ARRAY_2[gas_range] / 100.);
-                let gas_res =
-                    1. / (var3 * (0.000000125) * gas_range_f * (((adc_gas - 512.) / var2) + 1.));
-                gas_res
+
+                1. / (var3 * (0.000000125) * gas_range_f * (((adc_gas - 512.) / var2) + 1.))
             }
             Self::GasHigh => {
                 let var1 = 262144_u32 >> gas_range;
                 let mut var2 = adc_gas as i32 - 512_i32;
                 var2 *= 3;
-                var2 = 4096 + var2;
-                let calc_gas_res = 1000000. * var1 as f32 / var2 as f32;
-                calc_gas_res
+                var2 += 4096;
+                1000000. * var1 as f32 / var2 as f32
             }
         }
     }
@@ -82,9 +80,10 @@ pub enum SensorMode {
     Sleep,
     Forced,
 }
-impl Into<u8> for SensorMode {
-    fn into(self) -> u8 {
-        match self {
+
+impl From<SensorMode> for u8 {
+    fn from(value: SensorMode) -> Self {
+        match value {
             SensorMode::Sleep => 0,
             SensorMode::Forced => 1,
         }
@@ -99,6 +98,7 @@ impl From<u8> for SensorMode {
         }
     }
 }
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GasConfig {
     heater_duration: Duration,
@@ -123,7 +123,7 @@ impl GasConfig {
             0xff /* Max duration*/
         } else {
             while duration > 0x3F {
-                duration = duration / 4;
+                duration /= 4;
                 factor += 1;
             }
             duration as u8 + factor * 64
@@ -153,8 +153,7 @@ impl GasConfig {
         let var4 = var3 / (calibration_data.res_heat_range as i32 + 4);
         let var5 = (131 * calibration_data.res_heat_val as i32) + 65536;
         let heatr_res_x100 = ((var4 / var5) - 250) * 34;
-        let heater_resistance = ((heatr_res_x100 + 50) / 100) as u8;
-        heater_resistance
+        ((heatr_res_x100 + 50) / 100) as u8
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -246,18 +245,20 @@ impl From<u8> for Oversampling {
         }
     }
 }
-impl Into<u8> for Oversampling {
-    fn into(self) -> u8 {
-        match self {
-            Self::Skipped => 0,
-            Self::By1 => 1,
-            Self::By2 => 2,
-            Self::By4 => 3,
-            Self::By8 => 4,
-            Self::By16 => 5,
+
+impl From<Oversampling> for u8 {
+    fn from(value: Oversampling) -> Self {
+        match value {
+            Oversampling::Skipped => 0,
+            Oversampling::By1 => 1,
+            Oversampling::By2 => 2,
+            Oversampling::By4 => 3,
+            Oversampling::By8 => 4,
+            Oversampling::By16 => 5,
         }
     }
 }
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum IIRFilter {
     Coeff0,
@@ -283,20 +284,22 @@ impl From<u8> for IIRFilter {
         }
     }
 }
-impl Into<u8> for IIRFilter {
-    fn into(self) -> u8 {
-        match self {
-            Self::Coeff0 => 0,
-            Self::Coeff1 => 1,
-            Self::Coeff3 => 2,
-            Self::Coeff7 => 3,
-            Self::Coeff15 => 4,
-            Self::Coeff31 => 5,
-            Self::Coeff63 => 6,
-            Self::Coeff127 => 7,
+
+impl From<IIRFilter> for u8 {
+    fn from(value: IIRFilter) -> Self {
+        match value {
+            IIRFilter::Coeff0 => 0,
+            IIRFilter::Coeff1 => 1,
+            IIRFilter::Coeff3 => 2,
+            IIRFilter::Coeff7 => 3,
+            IIRFilter::Coeff15 => 4,
+            IIRFilter::Coeff31 => 5,
+            IIRFilter::Coeff63 => 6,
+            IIRFilter::Coeff127 => 7,
         }
     }
 }
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum HeaterProfile {
     Profile0,
@@ -326,19 +329,20 @@ impl From<u8> for HeaterProfile {
         }
     }
 }
-impl Into<u8> for HeaterProfile {
-    fn into(self) -> u8 {
-        match self {
-            Self::Profile0 => 0,
-            Self::Profile1 => 1,
-            Self::Profile2 => 2,
-            Self::Profile3 => 3,
-            Self::Profile4 => 4,
-            Self::Profile5 => 5,
-            Self::Profile6 => 6,
-            Self::Profile7 => 7,
-            Self::Profile8 => 8,
-            Self::Profile9 => 9,
+
+impl From<HeaterProfile> for u8 {
+    fn from(value: HeaterProfile) -> Self {
+        match value {
+            HeaterProfile::Profile0 => 0,
+            HeaterProfile::Profile1 => 1,
+            HeaterProfile::Profile2 => 2,
+            HeaterProfile::Profile3 => 3,
+            HeaterProfile::Profile4 => 4,
+            HeaterProfile::Profile5 => 5,
+            HeaterProfile::Profile6 => 6,
+            HeaterProfile::Profile7 => 7,
+            HeaterProfile::Profile8 => 8,
+            HeaterProfile::Profile9 => 9,
         }
     }
 }
