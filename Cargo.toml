@@ -16,8 +16,5 @@ bitfield = "0.14"
 
 [dev-dependencies]
 embedded-hal-mock = "0.8"
-rand = "0.8"
 test-log = "0.2"
 env_logger = "0.9"
-bme680-mock = {path="../../bme680-mock"}
-embedded-time = "0.12"

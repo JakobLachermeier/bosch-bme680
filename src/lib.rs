@@ -162,8 +162,6 @@ where
 #[cfg(test)]
 mod library_tests {
     extern crate std;
-    use std::thread;
-    use std::time::Duration;
 
     use std::vec;
     use std::vec::Vec;
@@ -182,7 +180,6 @@ mod library_tests {
     ];
 
     use super::*;
-    use bme680_mock::MockBme680;
     use embedded_hal_mock::delay::MockNoop;
     use embedded_hal_mock::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
     use test_log::test;
@@ -341,17 +338,5 @@ mod library_tests {
         .unwrap();
         bme.put_to_sleep().unwrap();
         bme.into_inner().done();
-    }
-    #[test]
-    fn test_mock_bme() {
-        let i2c_interface = MockBme680::new();
-        let mut _sensor = Bme680::new(
-            i2c_interface,
-            DeviceAddress::Primary,
-            MockNoop::new(),
-            &Configuration::default(),
-            20,
-        )
-        .unwrap();
     }
 }

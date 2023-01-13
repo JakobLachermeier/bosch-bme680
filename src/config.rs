@@ -162,7 +162,7 @@ impl GasConfig {
 
 /// Used to set Sensor settings.
 /// All options not set by the builder are set to default values.
-/// 
+///
 /// ```rust
 /// # use bosch_bme680::{Configuration, Oversampling, IIRFilter};
 /// # fn main() {
@@ -188,12 +188,12 @@ pub struct Configuration {
 
 impl Default for Configuration {
     /// Sets sensible default values for all options.
-    /// Temperature oversampling: By2, 
-    /// Pressure oversampling: By16, 
-    /// Humidity oversampling: By1, 
-    /// IIRFilter: Coeff1, 
+    /// Temperature oversampling: By2,
+    /// Pressure oversampling: By16,
+    /// Humidity oversampling: By1,
+    /// IIRFilter: Coeff1,
     /// Gas config:
-    /// heating duration: 150ms, 
+    /// heating duration: 150ms,
     /// heater target temperature: 300°C
     fn default() -> Self {
         Self {

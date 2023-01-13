@@ -44,7 +44,7 @@ where
         i2c_interface: I2C,
         device_address: DeviceAddress,
         delayer: D,
-        ambient_temperature: i32
+        ambient_temperature: i32,
     ) -> Result<Self, BmeError<I2C>> {
         Self {
             i2c_interface,
@@ -292,17 +292,15 @@ mod i2c_tests {
     extern crate std;
     use super::I2CHelper;
     use crate::{
-        bitfields::RawConfig,
-        config::{Configuration, DeviceAddress},
+        config::DeviceAddress,
         constants::{ADDR_CHIP_ID, ADDR_SOFT_RESET, CHIP_ID, CMD_SOFT_RESET},
     };
-    use bme680_mock::MockBme680;
     use embedded_hal_mock::{
         delay::MockNoop,
         i2c::{Mock as I2cMock, Transaction as I2cTransaction},
     };
-    use std::vec::Vec;
     use std::vec;
+    use std::vec::Vec;
     // primary device address
     const DEVICE_ADDRESS: u8 = 0x76;
     fn setup() -> Vec<I2cTransaction> {
@@ -328,19 +326,5 @@ mod i2c_tests {
         let i2c_helper =
             I2CHelper::new(i2c_interface, DeviceAddress::Primary, MockNoop {}, 20).unwrap();
         i2c_helper.into_inner().done();
-    }
-
-    // mock bme680 tests
-    #[test]
-    fn test_set_get_config() {
-        let mut raw_config: RawConfig<[u8; 5]> = RawConfig([0; 5]);
-        let config = Configuration::default();
-        raw_config.apply_config(&config);
-        let mut bme_helper =
-            I2CHelper::new(MockBme680::new(), DeviceAddress::Primary, MockNoop {},20).unwrap();
-        let calibration_data = bme_helper.get_calibration_data().unwrap();
-        bme_helper.set_config(&config, &calibration_data).unwrap();
-        let read_raw_config = bme_helper.get_config().unwrap();
-        assert_eq!(raw_config.0, read_raw_config.0);
     }
 }
