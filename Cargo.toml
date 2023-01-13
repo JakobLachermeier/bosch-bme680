@@ -1,0 +1,22 @@
+[package]
+name = "bosch-bme680"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+embedded-hal = "0.2"
+log = "0.4"
+# Custom errors
+snafu = {version="0.7", default-features=false}
+bitfield = "0.14"
+
+[dev-dependencies]
+embedded-hal-mock = "0.8"
+rand = "0.8"
+test-log = "0.2"
+env_logger = "0.9"
+bme680-mock = {path="../../bme680-mock"}
+drogue-bme680 = {version="0.3", features=["dump"]}
+embedded-time = "0.12"
