@@ -1,5 +1,6 @@
-# Pure rust driver for the Bosch BME680 environmental sensor
-This crate focuses on ease of use.
+# bosch_bme680 &emsp; [![crates.io](https://img.shields.io/crates/v/bosch-bme680)](https://crates.io/crates/bosch-bme680)
+*A pure rust driver for the Bosch BME680 environmental sensor that focuses on ease of use.*
+
 
 ## Additional information
 - [BME680 product page](https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors/bme680/)
