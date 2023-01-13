@@ -48,6 +48,7 @@ where
         sensor_config: &Configuration,
     ) -> Result<Self, BmeError<I2C>> {
         let mut i2c = I2CHelper::new(i2c_interface, device_address, delayer)?;
+
         let calibration_data = i2c.get_calibration_data()?;
         let sensor_config = i2c.set_config(sensor_config, &calibration_data)?;
         let variant = i2c.get_variant_id()?;
@@ -149,8 +150,8 @@ mod library_tests {
 
     use crate::constants::{
         ADDR_CHIP_ID, ADDR_CONFIG, ADDR_CONTROL_MODE, ADDR_GAS_WAIT_0, ADDR_REG_COEFF1,
-        ADDR_REG_COEFF2, ADDR_REG_COEFF3, ADDR_RES_HEAT_0, ADDR_SOFT_RESET, CHIP_ID,
-        CMD_SOFT_RESET, LEN_COEFF1, LEN_COEFF2, LEN_COEFF3,
+        ADDR_REG_COEFF2, ADDR_REG_COEFF3, ADDR_RES_HEAT_0, ADDR_SOFT_RESET, ADDR_VARIANT_ID,
+        CHIP_ID, CMD_SOFT_RESET, LEN_COEFF1, LEN_COEFF2, LEN_COEFF3,
     };
     use crate::i2c_helper::extract_calibration_data;
 
@@ -250,6 +251,12 @@ mod library_tests {
         transactions.push(I2cTransaction::write(
             DeviceAddress::Primary.into(),
             vec![ADDR_RES_HEAT_0, res_heat_0],
+        ));
+        // get chip variant
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_VARIANT_ID],
+            vec![0],
         ));
         transactions
     }

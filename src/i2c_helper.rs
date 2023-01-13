@@ -342,20 +342,4 @@ mod i2c_tests {
         let read_raw_config = bme_helper.get_config().unwrap();
         assert_eq!(raw_config.0, read_raw_config.0);
     }
-    #[test]
-    fn test_manual_redout() {
-        let mut i2c_helper =
-            I2CHelper::new(MockBme680::new(), DeviceAddress::Primary, MockNoop {}).unwrap();
-        let res_heat_range = i2c_helper.get_register(0x02).unwrap();
-        let res_heat_val = i2c_helper.get_register(0).unwrap();
-        let calibration_data = i2c_helper.get_calibration_data().unwrap();
-        println!("Calibration data:");
-        println!("res_heat_range: {:#010b}", calibration_data.res_heat_range);
-        println!("res_heat_val: {:#010b}", calibration_data.res_heat_val);
-        println!("Raw values:");
-        println!("res_heat_range: {res_heat_range:#010b}");
-        println!("res_heat_val: {res_heat_val:#010b}");
-
-        assert!(false);
-    }
 }
