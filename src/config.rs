@@ -7,7 +7,7 @@ use crate::{
     data::CalibrationData,
 };
 
-/// Use Primary if SDO is connected to ground and Secondary if SDO is connected to Vin.
+/// Use Primary if SDO connector of the sensor is connected to ground and Secondary if SDO is connected to Vin.
 #[repr(u8)]
 pub enum DeviceAddress {
     Primary = 0x76,
@@ -99,6 +99,8 @@ impl From<u8> for SensorMode {
     }
 }
 
+/// Used to enable gas measurment.
+/// Default values are 150ms heater duration and 300°C heater target temperature
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GasConfig {
     heater_duration: Duration,
@@ -106,6 +108,7 @@ pub struct GasConfig {
     // idac heat is not implemented since the control loop will find the current after a few iterations anyway.
 }
 impl Default for GasConfig {
+    /// Defaults to 150ms heater duration and 300°C heater target temperature
     fn default() -> Self {
         Self {
             heater_duration: Duration::from_millis(150),
@@ -156,6 +159,24 @@ impl GasConfig {
         ((heatr_res_x100 + 50) / 100) as u8
     }
 }
+
+/// Used to set Sensor settings.
+/// All options not set by the builder are set to default values.
+/// 
+/// ```rust
+/// # use bosch_bme680::{Configuration, Oversampling, IIRFilter};
+/// # fn main() {
+/// let configuration = Configuration::builder()
+///                     .temperature_oversampling(Oversampling::By2)
+///                     .pressure_oversampling(Oversampling::By16)
+///                     .humidity_oversampling(Oversampling::By1)
+///                     .filter(IIRFilter::Coeff1)
+///                     // Gas measurment is enabled by default. To disable it pass None as the GasConfig
+///                     .gas_config(None)
+///                     .build();
+///                         
+/// # }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Configuration {
     pub temperature_oversampling: Option<Oversampling>,
@@ -166,11 +187,19 @@ pub struct Configuration {
 }
 
 impl Default for Configuration {
+    /// Sets sensible default values for all options.
+    /// Temperature oversampling: By2, 
+    /// Pressure oversampling: By16, 
+    /// Humidity oversampling: By1, 
+    /// IIRFilter: Coeff1, 
+    /// Gas config:
+    /// heating duration: 150ms, 
+    /// heater target temperature: 300°C
     fn default() -> Self {
         Self {
             temperature_oversampling: Some(Oversampling::By2),
-            pressure_oversampling: Some(Oversampling::By1),
-            humidity_oversampling: Some(Oversampling::By16),
+            pressure_oversampling: Some(Oversampling::By16),
+            humidity_oversampling: Some(Oversampling::By1),
             filter: Some(IIRFilter::Coeff1),
             gas_config: Some(GasConfig::default()),
         }
@@ -187,31 +216,31 @@ pub struct ConfigBuilder {
     config: Configuration,
 }
 impl ConfigBuilder {
-    pub fn with_temperature_oversampling(mut self, oversampling: Oversampling) -> Self {
+    pub fn temperature_oversampling(mut self, oversampling: Oversampling) -> Self {
         self.config.temperature_oversampling = Some(oversampling);
         self
     }
-    pub fn with_humidity_oversampling(mut self, oversampling: Oversampling) -> Self {
+    pub fn humidity_oversampling(mut self, oversampling: Oversampling) -> Self {
         self.config.humidity_oversampling = Some(oversampling);
         self
     }
-    pub fn with_pressure_oversampling(mut self, oversampling: Oversampling) -> Self {
+    pub fn pressure_oversampling(mut self, oversampling: Oversampling) -> Self {
         self.config.pressure_oversampling = Some(oversampling);
         self
     }
-    pub fn with_filter(mut self, filter: IIRFilter) -> Self {
+    pub fn filter(mut self, filter: IIRFilter) -> Self {
         self.config.filter = Some(filter);
         self
     }
-    pub fn with_gas_config(mut self, gas_config: GasConfig) -> Self {
-        self.config.gas_config = Some(gas_config);
+    pub fn gas_config(mut self, gas_config: Option<GasConfig>) -> Self {
+        self.config.gas_config = gas_config;
         self
     }
     pub fn build(self) -> Configuration {
         self.config
     }
 }
-
+/// Oversampling settings for temperature, humidity, pressure
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Oversampling {
     Skipped,
@@ -259,6 +288,7 @@ impl From<Oversampling> for u8 {
     }
 }
 
+/// IIR filter control applies to temperature and pressure data.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum IIRFilter {
     Coeff0,

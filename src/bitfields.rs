@@ -280,12 +280,12 @@ mod tests {
         let expected_raw_data = [
             // 0x71 run_gas/nb_conv
             0b_000_1_0000u8,
-            // 0x72 humidity oversampling by 16
-            0b_0_0_000_101,
+            // 0x72 humidity oversampling by 2
+            0b_0_0_000_001,
             // 0x73 placeholder
             0b0,
-            // 0x74 temperature oversampling by 2 / pressure oversampling by 1 / mode sleep
-            0b_010_001_00,
+            // 0x74 temperature oversampling by 16 / pressure oversampling by 1 / mode sleep
+            0b_010_101_00,
             // 0x75 filter coeff 1
             0b000_001_00,
         ];

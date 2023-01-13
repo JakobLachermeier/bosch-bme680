@@ -1,34 +1,47 @@
+//! This a pure rust crate to read out sensor data from the [BME680](https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors/bme680/) environmental sensor from bosch.
+//!
+//! Notes:
+//! This library only supports reading out data with I²C but not SPI and
+//! only works for the BME680 and NOT for the BME688 though this could be implemented.
+//! The [official](https://github.com/BoschSensortec/BME68x-Sensor-API/) c implementation from Bosch was used as a reference.
+//!
+//! For further information about the sensors capabilities and settings refer to the official [product page](https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors/bme680/).
+
+// TODO add example here
 #![no_std]
 #![forbid(unsafe_code)]
 
+use self::config::{SensorMode, Variant};
 use bitfields::RawConfig;
-use config::{Configuration, DeviceAddress, SensorMode, Variant};
 use constants::{
     CYCLE_DURATION, GAS_MEAS_DURATION, LEN_CONFIG, TPH_SWITCHING_DURATION, WAKEUP_DURATION,
 };
-use data::{CalibrationData, MeasurmentData};
+use data::CalibrationData;
 use embedded_hal::{
     blocking::delay::DelayMs,
     blocking::i2c::{Write, WriteRead},
 };
-use error::BmeError;
 use i2c_helper::I2CHelper;
 
+pub use self::config::{Configuration, DeviceAddress, GasConfig, IIRFilter, Oversampling};
 use crate::data::{calculate_humidity, calculate_pressure, calculate_temperature};
+pub use data::MeasurmentData;
+pub use error::BmeError;
 
 mod bitfields;
 mod calculations;
-pub mod config;
+mod config;
 mod constants;
 mod data;
-pub mod error;
+mod error;
 mod i2c_helper;
 
+/// Sensor driver
 pub struct Bme680<I2C, D> {
     // actually communicates with sensor
     i2c: i2c_helper::I2CHelper<I2C, D>,
     // calibration data that was saved on the sensor
-    pub calibration_data: CalibrationData,
+    calibration_data: CalibrationData,
     // used to calculate measurment delay period
     sensor_config: RawConfig<[u8; LEN_CONFIG]>,
     // needed to calculate the gas resistance since it differes between bme680 and bme688
@@ -41,13 +54,19 @@ where
     <I2C as Write>::Error: core::fmt::Debug,
     D: DelayMs<u8>,
 {
+    /// Creates a new instance of the Sensor
+    ///
+    /// # Arguments
+    /// * `delayer` - Used to wait for the triggered measurment to finish
+    /// * `ambient_temperature` - Needed to calculate the heater target temperature
     pub fn new(
         i2c_interface: I2C,
         device_address: DeviceAddress,
         delayer: D,
         sensor_config: &Configuration,
+        ambient_temperature: i32,
     ) -> Result<Self, BmeError<I2C>> {
-        let mut i2c = I2CHelper::new(i2c_interface, device_address, delayer)?;
+        let mut i2c = I2CHelper::new(i2c_interface, device_address, delayer, ambient_temperature)?;
 
         let calibration_data = i2c.get_calibration_data()?;
         let sensor_config = i2c.set_config(sensor_config, &calibration_data)?;
@@ -65,13 +84,8 @@ where
     pub fn into_inner(self) -> I2C {
         self.i2c.into_inner()
     }
-    pub fn get_chip_variant(&mut self) -> Result<Variant, BmeError<I2C>> {
-        self.i2c.get_variant_id()
-    }
-    pub fn wake_up(&mut self) -> Result<(), BmeError<I2C>> {
-        self.i2c.set_mode(SensorMode::Forced)
-    }
-    pub fn put_to_sleep(&mut self) -> Result<(), BmeError<I2C>> {
+
+    fn put_to_sleep(&mut self) -> Result<(), BmeError<I2C>> {
         self.i2c.set_mode(SensorMode::Sleep)
     }
     pub fn set_configuration(&mut self, config: &Configuration) -> Result<(), BmeError<I2C>> {
@@ -81,10 +95,10 @@ where
         self.sensor_config = new_config;
         Ok(())
     }
-    pub fn get_raw_configuration(&mut self) -> Result<RawConfig<[u8; LEN_CONFIG]>, BmeError<I2C>> {
-        self.i2c.get_config()
-    }
-    // Sets the sensor mode to force
+    /// Triger a new measurment.
+    /// # Errors
+    /// If no new data is generated in 5 tries a Timeout error is returned.
+    // Sets the sensor mode to forced
     // Tries to wait 5 times for new data with a delay calculated based on the set sensor config
     // If no new data could be read in those 5 tries a Timeout error is returned
     pub fn measure(&mut self) -> Result<MeasurmentData, BmeError<I2C>> {
@@ -103,14 +117,20 @@ where
                     calculate_pressure(raw_data.pressure_adc().0, &self.calibration_data, t_fine);
                 let humidity =
                     calculate_humidity(raw_data.humidity_adc().0, &self.calibration_data, t_fine);
-                let gas_resistance = self.variant.calc_gas_resistance(
-                    raw_data.gas_adc().0,
-                    self.calibration_data.range_sw_err,
-                    raw_data.gas_range() as usize,
-                );
+                let gas_resistance = if raw_data.gas_valid() && !raw_data.gas_measuring() {
+                    let gas_resistance = self.variant.calc_gas_resistance(
+                        raw_data.gas_adc().0,
+                        self.calibration_data.range_sw_err,
+                        raw_data.gas_range() as usize,
+                    );
+                    Some(gas_resistance)
+                } else {
+                    None
+                };
+
                 let data = MeasurmentData {
                     temperature,
-                    gas_resistance: Some(gas_resistance),
+                    gas_resistance,
                     humidity,
                     pressure,
                 };
@@ -161,17 +181,8 @@ mod library_tests {
         70, 24,
     ];
 
-    pub struct MyDelay {}
-
-    impl drogue_bme680::Delay for MyDelay {
-        fn delay_ms(&self, duration_ms: u16) {
-            thread::sleep(Duration::from_millis(duration_ms as u64));
-        }
-    }
-
     use super::*;
     use bme680_mock::MockBme680;
-    use drogue_bme680::StaticProvider;
     use embedded_hal_mock::delay::MockNoop;
     use embedded_hal_mock::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
     use test_log::test;
@@ -277,34 +288,12 @@ mod library_tests {
             DeviceAddress::Primary,
             MockNoop::new(),
             &Configuration::default(),
+            20,
         )
         .unwrap();
         bme.into_inner().done();
     }
-    #[test]
-    fn test_set_mode_sleep_to_forced() {
-        let mut transactions = setup_transactions();
-        transactions.push(I2cTransaction::write_read(
-            DeviceAddress::Primary.into(),
-            vec![ADDR_CONTROL_MODE],
-            // sleep mode
-            vec![0b101011_00],
-        ));
-        transactions.push(I2cTransaction::write(
-            DeviceAddress::Primary.into(),
-            vec![ADDR_CONTROL_MODE, 0b101011_01],
-        ));
-        let i2c_interface = I2cMock::new(&transactions);
-        let mut bme = Bme680::new(
-            i2c_interface,
-            DeviceAddress::Primary,
-            MockNoop::new(),
-            &Configuration::default(),
-        )
-        .unwrap();
-        bme.wake_up().unwrap();
-        bme.into_inner().done();
-    }
+
     #[test]
     fn test_set_mode_forced_to_sleep() {
         let mut transactions = setup_transactions();
@@ -331,6 +320,7 @@ mod library_tests {
             DeviceAddress::Primary,
             MockNoop::new(),
             &Configuration::default(),
+            20,
         )
         .unwrap();
         bme.put_to_sleep().unwrap();
@@ -346,6 +336,7 @@ mod library_tests {
             DeviceAddress::Primary,
             MockNoop::new(),
             &Configuration::default(),
+            20,
         )
         .unwrap();
         bme.put_to_sleep().unwrap();
@@ -359,18 +350,8 @@ mod library_tests {
             DeviceAddress::Primary,
             MockNoop::new(),
             &Configuration::default(),
+            20,
         )
         .unwrap();
-    }
-    #[test]
-    fn test_mock_drouge() {
-        let i2c_interface = MockBme680::new();
-        let sensor =
-            drogue_bme680::Bme680Sensor::from(i2c_interface, drogue_bme680::Address::Primary)
-                .unwrap();
-        let config = drogue_bme680::Configuration::standard();
-        let _controler =
-            drogue_bme680::Bme680Controller::new(sensor, MyDelay {}, config, StaticProvider(20))
-                .unwrap();
     }
 }

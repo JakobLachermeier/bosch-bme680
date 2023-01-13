@@ -44,13 +44,14 @@ where
         i2c_interface: I2C,
         device_address: DeviceAddress,
         delayer: D,
+        ambient_temperature: i32
     ) -> Result<Self, BmeError<I2C>> {
         Self {
             i2c_interface,
             address: device_address.into(),
             delayer,
             // current ambient temperature. Needed to calculate the target temperature of the heater
-            ambient_temperature: 20,
+            ambient_temperature,
         }
         .init()
     }
@@ -301,7 +302,7 @@ mod i2c_tests {
         i2c::{Mock as I2cMock, Transaction as I2cTransaction},
     };
     use std::vec::Vec;
-    use std::{println, vec};
+    use std::vec;
     // primary device address
     const DEVICE_ADDRESS: u8 = 0x76;
     fn setup() -> Vec<I2cTransaction> {
@@ -325,7 +326,7 @@ mod i2c_tests {
         let transactions = setup();
         let i2c_interface = I2cMock::new(&transactions);
         let i2c_helper =
-            I2CHelper::new(i2c_interface, DeviceAddress::Primary, MockNoop {}).unwrap();
+            I2CHelper::new(i2c_interface, DeviceAddress::Primary, MockNoop {}, 20).unwrap();
         i2c_helper.into_inner().done();
     }
 
@@ -336,7 +337,7 @@ mod i2c_tests {
         let config = Configuration::default();
         raw_config.apply_config(&config);
         let mut bme_helper =
-            I2CHelper::new(MockBme680::new(), DeviceAddress::Primary, MockNoop {}).unwrap();
+            I2CHelper::new(MockBme680::new(), DeviceAddress::Primary, MockNoop {},20).unwrap();
         let calibration_data = bme_helper.get_calibration_data().unwrap();
         bme_helper.set_config(&config, &calibration_data).unwrap();
         let read_raw_config = bme_helper.get_config().unwrap();
