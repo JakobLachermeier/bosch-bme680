@@ -240,7 +240,9 @@ impl ConfigBuilder {
         self.config
     }
 }
-/// Oversampling settings for temperature, humidity, pressure
+/// Oversampling settings for temperature, humidity, pressure.
+/// Skipping means no measurment will be taken, which is not recommended for the temperature
+/// as it's needed to calculate the adjusted values for hummidiy and pressure.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Oversampling {
     Skipped,
@@ -288,7 +290,7 @@ impl From<Oversampling> for u8 {
     }
 }
 
-/// IIR filter control applies to temperature and pressure data.
+/// IIR filter control only applies to temperature and pressure data.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum IIRFilter {
     Coeff0,

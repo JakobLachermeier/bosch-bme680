@@ -37,10 +37,14 @@ pub struct CalibrationData {
 /// Measurment data returned from the sensor
 #[derive(Debug)]
 pub struct MeasurmentData {
+    /// Temperature in °C
     pub temperature: f32,
+    /// Relative humidity in %
     pub humidity: f32,
+    /// Pressure in hPa
     pub pressure: f32,
-    /// is None if gas measurment is disabled
+    /// Gas resistance in Ohms
+    /// None if gas measurment is disabled or gas measurment hasn't finished in time according to the gas_measuring bit.
     pub gas_resistance: Option<f32>,
 }
 

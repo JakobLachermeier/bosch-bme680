@@ -5,6 +5,7 @@
 ## Additional information
 - [BME680 product page](https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors/bme680/)
 - Official [C version](https://github.com/BoschSensortec/BME680_driver)
+- More detailed documentation can be found in the download section of the product page.
 
 ## Simple example
 Mock i2c and delay have to be replaced with specific hardware crates.

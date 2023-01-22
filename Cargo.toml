@@ -1,6 +1,6 @@
 [package]
 authors = ["Jakob Lachermeier"]
-description = "A pure rust implementation fo rthe BME680 environmental sensor"
+description = "A pure rust implementation for the BME680 environmental sensor"
 license = "MIT"
 name = "bosch-bme680"
 categories = ["embedded", "no-std"]
