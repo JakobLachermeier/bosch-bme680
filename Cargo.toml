@@ -7,7 +7,7 @@ categories = ["embedded", "no-std"]
 keywords = ["driver", "bme680", "sensor", "no_std"]
 repository = "https://github.com/JakobLachermeier/bosch-bme680"
 readme = "README.md"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 
