@@ -18,9 +18,9 @@ use constants::{
 };
 use data::CalibrationData;
 use embedded_hal::{
-    blocking::delay::DelayMs,
-    blocking::i2c::{Write, WriteRead},
+    delay::DelayNs,
 };
+use embedded_hal::i2c::{I2c, SevenBitAddress};
 use i2c_helper::I2CHelper;
 
 pub use self::config::{Configuration, DeviceAddress, GasConfig, IIRFilter, Oversampling};
@@ -39,25 +39,25 @@ mod i2c_helper;
 /// Sensor driver
 pub struct Bme680<I2C, D> {
     // actually communicates with sensor
-    i2c: i2c_helper::I2CHelper<I2C, D>,
+    i2c: I2CHelper<I2C, D>,
     // calibration data that was saved on the sensor
     calibration_data: CalibrationData,
-    // used to calculate measurment delay period
+    // used to calculate measurement delay period
     sensor_config: RawConfig<[u8; LEN_CONFIG]>,
-    // needed to calculate the gas resistance since it differes between bme680 and bme688
+    // needed to calculate the gas resistance since it differs between bme680 and bme688
     variant: Variant,
 }
 impl<I2C, D> Bme680<I2C, D>
 where
-    I2C: WriteRead + Write,
-    <I2C as WriteRead>::Error: core::fmt::Debug,
-    <I2C as Write>::Error: core::fmt::Debug,
-    D: DelayMs<u8>,
+    I2C: I2c<SevenBitAddress>,
+    // <I2C as WriteRead>::Error: core::fmt::Debug,
+    // <I2C as Write>::Error: core::fmt::Debug,
+    D: DelayNs,
 {
     /// Creates a new instance of the Sensor
     ///
     /// # Arguments
-    /// * `delayer` - Used to wait for the triggered measurment to finish
+    /// * `delayer` - Used to wait for the triggered measurement to finish
     /// * `ambient_temperature` - Needed to calculate the heater target temperature
     pub fn new(
         i2c_interface: I2C,
@@ -91,16 +91,16 @@ where
     pub fn set_configuration(&mut self, config: &Configuration) -> Result<(), BmeError<I2C>> {
         self.put_to_sleep()?;
         let new_config = self.i2c.set_config(config, &self.calibration_data)?;
-        // current conf is used to calculate measurment delay period
+        // current conf is used to calculate measurement delay period
         self.sensor_config = new_config;
         Ok(())
     }
-    /// Triger a new measurment.
+    /// Trigger a new measurement.
     /// # Errors
     /// If no new data is generated in 5 tries a Timeout error is returned.
     // Sets the sensor mode to forced
     // Tries to wait 5 times for new data with a delay calculated based on the set sensor config
-    // If no new data could be read in those 5 tries a Timeout error is returned
+    // If no new data could be read in those 5 attempts a Timeout error is returned
     pub fn measure(&mut self) -> Result<MeasurmentData, BmeError<I2C>> {
         self.i2c.set_mode(SensorMode::Forced)?;
         let delay_period = self.calculate_delay_period_us();
@@ -142,20 +142,20 @@ where
         // Shouldn't happen
         Err(BmeError::MeasuringTimeOut)
     }
-    // calculates the delay period needed for a measurment in microseconds.
+    // calculates the delay period needed for a measurement in microseconds.
     fn calculate_delay_period_us(&self) -> u32 {
-        let mut measurment_cycles: u32 = 0;
-        measurment_cycles += self.sensor_config.temperature_oversampling().cycles();
-        measurment_cycles += self.sensor_config.humidity_oversampling().cycles();
-        measurment_cycles += self.sensor_config.pressure_oversampling().cycles();
+        let mut measurement_cycles: u32 = 0;
+        measurement_cycles += self.sensor_config.temperature_oversampling().cycles();
+        measurement_cycles += self.sensor_config.humidity_oversampling().cycles();
+        measurement_cycles += self.sensor_config.pressure_oversampling().cycles();
 
-        let mut measurment_duration = measurment_cycles * CYCLE_DURATION;
-        measurment_duration += TPH_SWITCHING_DURATION;
-        measurment_duration += GAS_MEAS_DURATION;
+        let mut measurement_duration = measurement_cycles * CYCLE_DURATION;
+        measurement_duration += TPH_SWITCHING_DURATION;
+        measurement_duration += GAS_MEAS_DURATION;
 
-        measurment_duration += WAKEUP_DURATION;
+        measurement_duration += WAKEUP_DURATION;
 
-        measurment_duration
+        measurement_duration
     }
 }
 
@@ -180,8 +180,8 @@ mod library_tests {
     ];
 
     use super::*;
-    use embedded_hal_mock::delay::MockNoop;
-    use embedded_hal_mock::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
+    use embedded_hal_mock::eh1::delay::NoopDelay;
+    use embedded_hal_mock::eh1::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
     use test_log::test;
 
     fn setup_transactions() -> Vec<I2cTransaction> {
@@ -191,9 +191,9 @@ mod library_tests {
         let calibration_data_3 = CALIBRATION_DATA
             [LEN_COEFF1 + LEN_COEFF2..LEN_COEFF1 + LEN_COEFF2 + LEN_COEFF3]
             .to_vec();
-        assert!(calibration_data_1.len() == LEN_COEFF1);
-        assert!(calibration_data_2.len() == LEN_COEFF2);
-        assert!(calibration_data_3.len() == LEN_COEFF3);
+        assert_eq!(calibration_data_1.len(), LEN_COEFF1);
+        assert_eq!(calibration_data_2.len(), LEN_COEFF2);
+        assert_eq!(calibration_data_3.len(), LEN_COEFF3);
         // soft reset
         transactions.push(I2cTransaction::write(
             DeviceAddress::Primary.into(),
@@ -283,7 +283,7 @@ mod library_tests {
         let bme = Bme680::new(
             i2c_interface,
             DeviceAddress::Primary,
-            MockNoop::new(),
+            NoopDelay::new(),
             &Configuration::default(),
             20,
         )
@@ -315,7 +315,7 @@ mod library_tests {
         let mut bme = Bme680::new(
             i2c_interface,
             DeviceAddress::Primary,
-            MockNoop::new(),
+            NoopDelay::new(),
             &Configuration::default(),
             20,
         )
@@ -331,7 +331,7 @@ mod library_tests {
         let mut bme = Bme680::new(
             i2c_interface,
             DeviceAddress::Primary,
-            MockNoop::new(),
+            NoopDelay::new(),
             &Configuration::default(),
             20,
         )

@@ -20,7 +20,7 @@ pub const ADDR_SENSOR_RESULT: u8 = 0x1D;
 pub const CMD_SOFT_RESET: u8 = 0xB6;
 // Constants
 pub const CHIP_ID: u8 = 0x61;
-pub const DELAY_PERIOD_MS: u8 = 10;
+pub const DELAY_PERIOD_MS: u32 = 10;
 pub const MAX_HEATER_WAIT_DURATION_MS: u16 = 0xfc0;
 pub const MAX_HEATER_TEMPERATURE: u16 = 400;
 

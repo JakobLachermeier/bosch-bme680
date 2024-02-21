@@ -1,5 +1,5 @@
-use embedded_hal::blocking::delay::DelayMs;
-use embedded_hal::blocking::i2c::{Write, WriteRead};
+use embedded_hal::delay::DelayNs;
+use embedded_hal::i2c::{I2c, SevenBitAddress};
 use log::debug;
 
 use crate::bitfields::{CtrlMeasurment, RawConfig, RawData};
@@ -35,10 +35,8 @@ pub struct I2CHelper<I2C, D> {
 }
 impl<I2C, D> I2CHelper<I2C, D>
 where
-    I2C: WriteRead + Write,
-    <I2C as WriteRead>::Error: core::fmt::Debug,
-    <I2C as Write>::Error: core::fmt::Debug,
-    D: DelayMs<u8>,
+    I2C: I2c<SevenBitAddress>,
+    D: DelayNs,
 {
     pub fn new(
         i2c_interface: I2C,
@@ -61,7 +59,7 @@ where
     }
     // pause for duration in ms
     pub fn delay(&mut self, duration_ms: u32) {
-        self.delayer.delay_ms(duration_ms as u8);
+        self.delayer.delay_us(duration_ms);
     }
     fn get_register(&mut self, address: u8) -> Result<u8, BmeError<I2C>> {
         debug!("    Getting register: {address:x}.");
@@ -295,8 +293,8 @@ mod i2c_tests {
         config::DeviceAddress,
         constants::{ADDR_CHIP_ID, ADDR_SOFT_RESET, CHIP_ID, CMD_SOFT_RESET},
     };
-    use embedded_hal_mock::{
-        delay::MockNoop,
+    use embedded_hal_mock::eh1::{
+        delay::NoopDelay,
         i2c::{Mock as I2cMock, Transaction as I2cTransaction},
     };
     use std::vec;
@@ -324,7 +322,7 @@ mod i2c_tests {
         let transactions = setup();
         let i2c_interface = I2cMock::new(&transactions);
         let i2c_helper =
-            I2CHelper::new(i2c_interface, DeviceAddress::Primary, MockNoop {}, 20).unwrap();
+            I2CHelper::new(i2c_interface, DeviceAddress::Primary, NoopDelay {}, 20).unwrap();
         i2c_helper.into_inner().done();
     }
 }

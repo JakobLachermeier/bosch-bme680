@@ -1,18 +1,16 @@
 use core::fmt::Formatter;
+use embedded_hal::i2c::{I2c, SevenBitAddress};
 
-use embedded_hal::blocking::i2c::{Write, WriteRead};
 
 /// All possible errors
 pub enum BmeError<I2C>
 where
-    I2C: WriteRead + Write,
-    <I2C as WriteRead>::Error: core::fmt::Debug,
-    <I2C as Write>::Error: core::fmt::Debug,
+    I2C: I2c<SevenBitAddress>
 {
     /// Error during I2C write operation.
-    WriteError(<I2C as Write>::Error),
+    WriteError(I2C::Error),
     /// Error during I2C WriteRead operation.
-    WriteReadError(<I2C as WriteRead>::Error),
+    WriteReadError(I2C::Error),
     /// Got an unexpected ChipId during sensor initalization.
     UnexpectedChipId(u8),
     /// After running the measurment the sensor blocks until the 'new data bit' of the sensor is set.
@@ -22,9 +20,7 @@ where
 
 impl<I2C> core::fmt::Debug for BmeError<I2C>
 where
-    I2C: WriteRead + Write,
-    <I2C as WriteRead>::Error: core::fmt::Debug,
-    <I2C as Write>::Error: core::fmt::Debug,
+    I2C: I2c<SevenBitAddress>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
         match self {
@@ -35,7 +31,7 @@ where
                 .field(chip_id)
                 .finish(),
             BmeError::MeasuringTimeOut => f
-                .debug_tuple("Timed out while waiting for new measurment values. Either no new data or the sensor took unexpectedly long to finish measuring.").finish()
+                .debug_tuple("Timed out while waiting for new measurement values. Either no new data or the sensor took unexpectedly long to finish measuring.").finish()
         }
     }
 }
