@@ -6,7 +6,7 @@ use crate::bitfields::{CtrlMeasurment, RawConfig, RawData};
 use crate::config::{Configuration, GasConfig, SensorMode, Variant};
 use crate::constants::{
     ADDRS_CONFIG, ADDR_CONFIG, ADDR_CONTROL_MODE, ADDR_GAS_WAIT_0, ADDR_RES_HEAT_0,
-    ADDR_SENSOR_RESULT, ADDR_VARIANT_ID, DELAY_PERIOD_MS, LEN_CONFIG,
+    ADDR_SENSOR_RESULT, ADDR_VARIANT_ID, DELAY_PERIOD_US, LEN_CONFIG,
 };
 use crate::{
     config::DeviceAddress,
@@ -57,9 +57,9 @@ where
     pub fn into_inner(self) -> I2C {
         self.i2c_interface
     }
-    // pause for duration in ms
-    pub fn delay(&mut self, duration_ms: u32) {
-        self.delayer.delay_us(duration_ms);
+    // pause for duration in us
+    pub fn delay(&mut self, duration_us: u32) {
+        self.delayer.delay_us(duration_us);
     }
     fn get_register(&mut self, address: u8) -> Result<u8, BmeError<I2C>> {
         debug!("    Getting register: {address:x}.");
@@ -100,7 +100,7 @@ where
     /// Soft resets and checks device if device id matches the expected device id
     fn init(mut self) -> Result<Self, BmeError<I2C>> {
         self.soft_reset()?;
-        self.delayer.delay_ms(DELAY_PERIOD_MS);
+        self.delayer.delay_ms(DELAY_PERIOD_US);
         let chip_id = self.get_chip_id()?;
         if chip_id != CHIP_ID {
             Err(BmeError::UnexpectedChipId(chip_id))
@@ -160,7 +160,7 @@ where
                     control_register.set_mode(SensorMode::Sleep);
                     debug!("Setting control register to: {control_register:?}");
                     self.set_register(ADDR_CONTROL_MODE, control_register.0)?;
-                    self.delayer.delay_ms(DELAY_PERIOD_MS);
+                    self.delayer.delay_ms(DELAY_PERIOD_US);
                 }
             }
         };

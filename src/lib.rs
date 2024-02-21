@@ -104,7 +104,7 @@ where
     pub fn measure(&mut self) -> Result<MeasurmentData, BmeError<I2C>> {
         self.i2c.set_mode(SensorMode::Forced)?;
         let delay_period = self.calculate_delay_period_us();
-        self.i2c.delay(delay_period / 1000);
+        self.i2c.delay(delay_period);
         // try read new values 5 times and delay if no new data is available or the sensor is still measuring
         for _i in 0..5 {
             let raw_data = self.i2c.get_field_data()?;
