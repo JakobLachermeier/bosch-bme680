@@ -48,6 +48,7 @@ pub struct MeasurmentData {
     pub gas_resistance: Option<f32>,
 }
 
+
 pub fn calculate_temperature(adc_temp: u32, calibration_data: &CalibrationData) -> (f32, f32) {
     let temp_adc = adc_temp as f32;
     let var_1 = ((temp_adc / 16384.) - (calibration_data.par_t1 as f32 / 1024.))
@@ -109,4 +110,104 @@ pub fn calculate_humidity(adc_hum: u16, calibration_data: &CalibrationData, t_fi
     //     calc_hum = 0.
     // }
     calc_hum
+}
+
+#[cfg(test)]
+mod tests {
+    use approx::{assert_abs_diff_eq, assert_relative_eq, relative_eq};
+    use crate::data::{calculate_humidity, calculate_pressure, calculate_temperature, CalibrationData};
+
+    static CALIBRATION_DATA: CalibrationData = CalibrationData {
+        par_t1: 25942,
+        par_t2: 26664,
+        par_t3: 3,
+        par_p1: 37439,
+        par_p2: -10316,
+        par_p3: 88,
+        par_p4: 10477,
+        par_p5: -308,
+        par_p6: 30,
+        par_p7: 62,
+        par_p8: -5160,
+        par_p9: -1568,
+        par_p10: 30,
+        par_h1: 881,
+        par_h2: 989,
+        par_h3: 0,
+        par_h4: 45,
+        par_h5: 20,
+        par_h6: 120,
+        par_h7: -100,
+        par_gh1: -69,
+        par_gh2: -9092,
+        par_gh3: 18,
+        res_heat_range: 1,
+        res_heat_val: 30,
+        range_sw_err: 0,
+    };
+
+
+
+    #[test]
+    fn test_calc_temp() {
+        // Calc_temp: temp_adc: 482062, calc_temp: 21.295866, tfine: 109034.835938
+        // Calc_temp: temp_adc: 482452, calc_temp: 21.419861, tfine: 109669.687500
+        // Calc_temp: temp_adc: 482060, calc_temp: 21.295231, tfine: 109031.585938
+        // Calc_temp: temp_adc: 482453, calc_temp: 21.420179, tfine: 109671.320312
+        // Calc_temp: temp_adc: 482058, calc_temp: 21.294596, tfine: 109028.328125
+
+        let data = [
+            (482062, 21.295866, 109034.835938),
+            (482452, 21.419861, 109669.687500),
+            (482060, 21.295231, 109031.585938),
+            (482453, 21.420179, 109671.320312),
+            (482058, 21.294596, 109028.328125),
+        ];
+        for (temp_adc, actual_temp, actual_tfine) in data {
+            let (temp, calc_tfine) = calculate_temperature(temp_adc, &CALIBRATION_DATA);
+
+            assert_abs_diff_eq!(actual_temp, temp);
+            assert_abs_diff_eq!(actual_tfine, calc_tfine);
+        }
+    }
+    #[test]
+    fn test_calc_humidity() {
+        // hum_adc: 25537, calc_hum: 59.469585, tfine: 109842.234375
+        // hum_adc: 25531, calc_hum: 59.410557, tfine: 109090.187500
+        // hum_adc: 25545, calc_hum: 59.515030, tfine: 109643.640625
+        // hum_adc: 25535, calc_hum: 59.431923, tfine: 108942.054688
+        // hum_adc: 25549, calc_hum: 59.537392, tfine: 109531.328125
+
+        let pairs = [
+            (25537,59.469585,109842.234375),
+            (25531,59.410557,109090.187500),
+            (25545,59.515030,109643.640625),
+            (25535,59.431923,108942.054688),
+            (25549,59.537392,109531.328125),
+        ];
+        for (hum_adc, actual_hum, tfine) in pairs {
+            let calc_hum = calculate_humidity(hum_adc, &CALIBRATION_DATA, tfine);
+            assert_abs_diff_eq!(calc_hum, actual_hum);
+        }
+
+    }
+    #[test]
+    fn test_calc_pressure() {
+        // pres_adc: 307582, calc_pres: 95058.664062, tfine: 111095.656250
+        // pres_adc: 307395, calc_pres: 95058.992188, tfine: 110130.359375
+        // pres_adc: 307469, calc_pres: 95059.296875, tfine: 110525.921875
+        // pres_adc: 307313, calc_pres: 95058.773438, tfine: 109695.726562
+        // pres_adc: 307254, calc_pres: 95060.328125, tfine: 109436.914062
+        let data = [
+            (307582, 95058.664062, 111095.656250),
+            (307395, 95058.992188, 110130.359375),
+            (307469, 95059.296875, 110525.921875),
+            (307313, 95058.773438, 109695.726562),
+            (307254, 95060.328125, 109436.914062),
+        ];
+        for (press_adc, actual_press, tfine) in data {
+            let calc_press = calculate_pressure(press_adc, &CALIBRATION_DATA, tfine);
+            assert_abs_diff_eq!(calc_press, actual_press);
+        }
+    }
 }

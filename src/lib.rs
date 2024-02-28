@@ -157,6 +157,10 @@ where
 
         measurement_duration
     }
+
+    pub fn get_calibration_data(&self) -> &CalibrationData {
+        &self.calibration_data
+    }
 }
 
 #[cfg(test)]

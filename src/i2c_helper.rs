@@ -229,8 +229,11 @@ pub fn extract_calibration_data(coeff_buffer: [u8; 42]) -> CalibrationData {
     let par_p3 = coeff_buffer[8] as i8;
     let par_p4 = i16::from_be_bytes([coeff_buffer[11], coeff_buffer[10]]);
     let par_p5 = i16::from_be_bytes([coeff_buffer[13], coeff_buffer[12]]);
-    let par_p6 = coeff_buffer[14] as i8;
-    let par_p7 = coeff_buffer[15] as i8;
+
+    // Switch p6 and p7 to match calibration data from original Bme68x c library
+    let par_p6 = coeff_buffer[15] as i8;
+    let par_p7 = coeff_buffer[14] as i8;
+
     let par_p8 = i16::from_be_bytes([coeff_buffer[19], coeff_buffer[18]]);
     let par_p9 = i16::from_be_bytes([coeff_buffer[21], coeff_buffer[20]]);
     let par_p10 = coeff_buffer[22];
