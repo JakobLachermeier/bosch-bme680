@@ -5,21 +5,40 @@
 //! only works for the BME680 and NOT for the BME688 though this could be implemented.
 //! The [official](https://github.com/BoschSensortec/BME68x-Sensor-API/) c implementation from Bosch was used as a reference.
 //!
-//! For further information about the sensors capabilities and settings refer to the official [product page](https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors/bme680/).
+//! For further information about the sensors capabilities and settings refer to the official [product page](https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors/bme680/).[]
+//!
+//!
+//! ## [`embedded-hal-async`] usage
+//!
+//! This crate has optional support for [`embedded-hal-async`], which provides
+//! asynchronous versions of the [`embedded-hal`] traits. To avoid an unnecessary
+//! dependency on `embedded-hal-async` for projects which do not require it, the
+//! `embedded-hal-async` support is an optional feature.
+//!
+//! In order to use the `embedded-hal-async` driver, add the following to your
+//! `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! bosch-bme680 = { version = "1.0.3", features = ["embedded-hal-async"] }
+//! ```
+//!
+//! Then, construct an instance of the `AsyncBme680` struct using the
+//! `embedded_hal_async` `I2c` and `Delay` traits.
+//!
+//! [`embedded-hal`]: https://crates.io/crates/embedded-hal-async
+//! [`embedded-hal-async`]: https://crates.io/crates/embedded-hal-async
 
 // TODO add example here
 #![no_std]
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 use self::config::{SensorMode, Variant};
 use bitfields::RawConfig;
-use constants::{
-    CYCLE_DURATION, GAS_MEAS_DURATION, LEN_CONFIG, TPH_SWITCHING_DURATION, WAKEUP_DURATION,
-};
+use constants::LEN_CONFIG;
 use data::CalibrationData;
-use embedded_hal::{
-    delay::DelayNs,
-};
+use embedded_hal::delay::DelayNs;
 use embedded_hal::i2c::{I2c, SevenBitAddress};
 use i2c_helper::I2CHelper;
 
@@ -28,6 +47,10 @@ use crate::data::{calculate_humidity, calculate_pressure, calculate_temperature}
 pub use data::MeasurmentData;
 pub use error::BmeError;
 
+#[cfg(feature = "embedded-hal-async")]
+mod async_impl;
+#[cfg(feature = "embedded-hal-async")]
+pub use async_impl::AsyncBme680;
 mod bitfields;
 mod calculations;
 mod config;
@@ -35,7 +58,6 @@ mod constants;
 mod data;
 mod error;
 mod i2c_helper;
-
 /// Sensor driver
 pub struct Bme680<I2C, D> {
     // actually communicates with sensor
@@ -103,59 +125,22 @@ where
     // If no new data could be read in those 5 attempts a Timeout error is returned
     pub fn measure(&mut self) -> Result<MeasurmentData, BmeError<I2C>> {
         self.i2c.set_mode(SensorMode::Forced)?;
-        let delay_period = self.calculate_delay_period_us();
+        let delay_period = self.sensor_config.calculate_delay_period_us();
         self.i2c.delay(delay_period);
         // try read new values 5 times and delay if no new data is available or the sensor is still measuring
         for _i in 0..5 {
             let raw_data = self.i2c.get_field_data()?;
-            if !raw_data.measuring() && raw_data.new_data() {
-                let (temperature, t_fine) =
-                    calculate_temperature(raw_data.temperature_adc().0, &self.calibration_data);
-                // update the current ambient temperature which is needed to calculate the target heater temp
-                self.i2c.ambient_temperature = temperature as i32;
-                let pressure =
-                    calculate_pressure(raw_data.pressure_adc().0, &self.calibration_data, t_fine);
-                let humidity =
-                    calculate_humidity(raw_data.humidity_adc().0, &self.calibration_data, t_fine);
-                let gas_resistance = if raw_data.gas_valid() && !raw_data.gas_measuring() {
-                    let gas_resistance = self.variant.calc_gas_resistance(
-                        raw_data.gas_adc().0,
-                        self.calibration_data.range_sw_err,
-                        raw_data.gas_range() as usize,
-                    );
-                    Some(gas_resistance)
-                } else {
-                    None
-                };
-
-                let data = MeasurmentData {
-                    temperature,
-                    gas_resistance,
-                    humidity,
-                    pressure,
-                };
-                return Ok(data);
-            } else {
-                self.i2c.delay(delay_period);
+            match MeasurmentData::from_raw(raw_data, &self.calibration_data, &self.variant) {
+                Some(data) => {
+                    // update the current ambient temperature which is needed to calculate the target heater temp
+                    self.i2c.ambient_temperature = data.temperature as i32;
+                    return Ok(data);
+                }
+                None => self.i2c.delay(delay_period),
             }
         }
         // Shouldn't happen
         Err(BmeError::MeasuringTimeOut)
-    }
-    // calculates the delay period needed for a measurement in microseconds.
-    fn calculate_delay_period_us(&self) -> u32 {
-        let mut measurement_cycles: u32 = 0;
-        measurement_cycles += self.sensor_config.temperature_oversampling().cycles();
-        measurement_cycles += self.sensor_config.humidity_oversampling().cycles();
-        measurement_cycles += self.sensor_config.pressure_oversampling().cycles();
-
-        let mut measurement_duration = measurement_cycles * CYCLE_DURATION;
-        measurement_duration += TPH_SWITCHING_DURATION;
-        measurement_duration += GAS_MEAS_DURATION;
-
-        measurement_duration += WAKEUP_DURATION;
-
-        measurement_duration
     }
 
     pub fn get_calibration_data(&self) -> &CalibrationData {
