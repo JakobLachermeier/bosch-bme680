@@ -55,7 +55,7 @@ impl MeasurmentData {
         variant: &crate::config::Variant,
     ) -> Option<Self> {
         // First, check to make sure a measurement is ready. If not, bail.
-        if raw_data.measuring() || raw_data.new_data() {
+        if raw_data.measuring() && !raw_data.new_data() {
             return None;
         }
         let (temperature, t_fine) =
