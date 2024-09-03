@@ -99,7 +99,7 @@ impl From<u8> for SensorMode {
     }
 }
 
-/// Used to enable gas measurment.
+/// Used to enable gas measurement.
 /// Default values are 150ms heater duration and 300°C heater target temperature
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GasConfig {
@@ -158,6 +158,9 @@ impl GasConfig {
         let heatr_res_x100 = ((var4 / var5) - 250) * 34;
         ((heatr_res_x100 + 50) / 100) as u8
     }
+    pub fn heater_duration(&self) -> Duration {
+        self.heater_duration
+    }
 }
 
 /// Used to set Sensor settings.
@@ -171,7 +174,7 @@ impl GasConfig {
 ///                     .pressure_oversampling(Oversampling::By16)
 ///                     .humidity_oversampling(Oversampling::By1)
 ///                     .filter(IIRFilter::Coeff1)
-///                     // Gas measurment is enabled by default. To disable it pass None as the GasConfig
+///                     // Gas measurement is enabled by default. To disable it pass None as the GasConfig
 ///                     .gas_config(None)
 ///                     .build();
 ///                         
@@ -241,8 +244,8 @@ impl ConfigBuilder {
     }
 }
 /// Oversampling settings for temperature, humidity, pressure.
-/// Skipping means no measurment will be taken, which is not recommended for the temperature
-/// as it's needed to calculate the adjusted values for hummidiy and pressure.
+/// Skipping means no measurement will be taken, which is not recommended for the temperature
+/// as it's needed to calculate the adjusted values for humidity and pressure.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Oversampling {
     Skipped,
@@ -392,8 +395,8 @@ mod config_tests {
     fn test_sensor_mode() {
         let sleeping = 0u8;
         let forced = 1u8;
-        assert!(SensorMode::Sleep == sleeping.into());
-        assert!(SensorMode::Forced == forced.into());
+        assert_eq!(SensorMode::Sleep, sleeping.into());
+        assert_eq!(SensorMode::Forced, forced.into());
     }
     #[test]
     fn test_gas_config() {
@@ -403,6 +406,6 @@ mod config_tests {
         };
         assert!(config.calc_gas_wait() <= config.heater_duration.as_millis() as u8);
         // taken from data sheet
-        assert!(config.calc_gas_wait() == 0x59);
+        assert_eq!(config.calc_gas_wait(), 0x59);
     }
 }

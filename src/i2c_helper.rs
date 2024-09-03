@@ -100,7 +100,7 @@ where
     /// Soft resets and checks device if device id matches the expected device id
     fn init(mut self) -> Result<Self, BmeError<I2C>> {
         self.soft_reset()?;
-        self.delayer.delay_ms(DELAY_PERIOD_US);
+        self.delayer.delay_us(DELAY_PERIOD_US);
         let chip_id = self.get_chip_id()?;
         if chip_id != CHIP_ID {
             Err(BmeError::UnexpectedChipId(chip_id))
@@ -160,7 +160,7 @@ where
                     control_register.set_mode(SensorMode::Sleep);
                     debug!("Setting control register to: {control_register:?}");
                     self.set_register(ADDR_CONTROL_MODE, control_register.0)?;
-                    self.delayer.delay_ms(DELAY_PERIOD_US);
+                    self.delayer.delay_us(DELAY_PERIOD_US);
                 }
             }
         };

@@ -12,9 +12,8 @@
 #![forbid(unsafe_code)]
 
 use self::config::{SensorMode, Variant};
-use bitfields::RawConfig;
 use constants::{
-    CYCLE_DURATION, GAS_MEAS_DURATION, LEN_CONFIG, TPH_SWITCHING_DURATION, WAKEUP_DURATION,
+    CYCLE_DURATION, GAS_MEAS_DURATION, TPH_SWITCHING_DURATION, WAKEUP_DURATION,
 };
 use data::CalibrationData;
 use embedded_hal::{
@@ -22,6 +21,7 @@ use embedded_hal::{
 };
 use embedded_hal::i2c::{I2c, SevenBitAddress};
 use i2c_helper::I2CHelper;
+
 
 pub use self::config::{Configuration, DeviceAddress, GasConfig, IIRFilter, Oversampling};
 use crate::data::{calculate_humidity, calculate_pressure, calculate_temperature};
@@ -43,7 +43,7 @@ pub struct Bme680<I2C, D> {
     // calibration data that was saved on the sensor
     calibration_data: CalibrationData,
     // used to calculate measurement delay period
-    sensor_config: RawConfig<[u8; LEN_CONFIG]>,
+    current_sensor_config: Configuration,
     // needed to calculate the gas resistance since it differs between bme680 and bme688
     variant: Variant,
 }
@@ -69,12 +69,12 @@ where
         let mut i2c = I2CHelper::new(i2c_interface, device_address, delayer, ambient_temperature)?;
 
         let calibration_data = i2c.get_calibration_data()?;
-        let sensor_config = i2c.set_config(sensor_config, &calibration_data)?;
+        i2c.set_config(sensor_config, &calibration_data)?;
         let variant = i2c.get_variant_id()?;
         let bme = Self {
             i2c,
             calibration_data,
-            sensor_config,
+            current_sensor_config: sensor_config.clone(),
             variant,
         };
 
@@ -90,9 +90,9 @@ where
     }
     pub fn set_configuration(&mut self, config: &Configuration) -> Result<(), BmeError<I2C>> {
         self.put_to_sleep()?;
-        let new_config = self.i2c.set_config(config, &self.calibration_data)?;
+        self.i2c.set_config(config, &self.calibration_data)?;
         // current conf is used to calculate measurement delay period
-        self.sensor_config = new_config;
+        self.current_sensor_config = config.clone();
         Ok(())
     }
     /// Trigger a new measurement.
@@ -143,16 +143,28 @@ where
         Err(BmeError::MeasuringTimeOut)
     }
     // calculates the delay period needed for a measurement in microseconds.
+    // Also add the heater duration in microseconds like the Adafruit driver does.
+    // https://github.com/adafruit/Adafruit_BME680/blob/master/bme68x.c#L490
     fn calculate_delay_period_us(&self) -> u32 {
         let mut measurement_cycles: u32 = 0;
-        measurement_cycles += self.sensor_config.temperature_oversampling().cycles();
-        measurement_cycles += self.sensor_config.humidity_oversampling().cycles();
-        measurement_cycles += self.sensor_config.pressure_oversampling().cycles();
-
+        if let Some(temperature_oversampling) = &self.current_sensor_config.temperature_oversampling {
+            measurement_cycles += temperature_oversampling.cycles();
+        }
+        if let Some(humidity_oversampling) = &self.current_sensor_config.humidity_oversampling {
+            measurement_cycles += humidity_oversampling.cycles();
+        }
+        if let Some(pressure_oversampling) = &self.current_sensor_config.pressure_oversampling {
+            measurement_cycles += pressure_oversampling.cycles();
+        }
         let mut measurement_duration = measurement_cycles * CYCLE_DURATION;
+
+        // https://github.com/adafruit/Adafruit_BME680/blob/master/Adafruit_BME680.cpp#L311
+        if let Some(gas_config) = &self.current_sensor_config.gas_config {
+            measurement_duration += gas_config.heater_duration().as_micros() as u32;
+        }
+
         measurement_duration += TPH_SWITCHING_DURATION;
         measurement_duration += GAS_MEAS_DURATION;
-
         measurement_duration += WAKEUP_DURATION;
 
         measurement_duration
@@ -187,6 +199,7 @@ mod library_tests {
     use embedded_hal_mock::eh1::delay::NoopDelay;
     use embedded_hal_mock::eh1::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
     use test_log::test;
+    use crate::bitfields::RawConfig;
 
     fn setup_transactions() -> Vec<I2cTransaction> {
         let mut transactions = vec![];
