@@ -34,6 +34,7 @@ where
                 .finish(),
             BmeError::MeasuringTimeOut => f
                 .debug_tuple("Timed out while waiting for new measurement values. Either no new data or the sensor took unexpectedly long to finish measuring.").finish(),
+            #[cfg(feature = "embedded-hal-async")]
             BmeError::Uninitialized => f.debug_tuple("Uninitialized").finish(),
         }
     }

@@ -33,12 +33,10 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+extern crate alloc;
 
 use self::config::{SensorMode, Variant};
-use bitfields::RawConfig;
-use constants::{
-    CYCLE_DURATION, GAS_MEAS_DURATION, LEN_CONFIG, TPH_SWITCHING_DURATION, WAKEUP_DURATION,
-};
+
 use data::CalibrationData;
 use embedded_hal::delay::DelayNs;
 use embedded_hal::i2c::{I2c, SevenBitAddress};
@@ -129,7 +127,7 @@ where
     // If no new data could be read in those 5 attempts a Timeout error is returned
     pub fn measure(&mut self) -> Result<MeasurmentData, BmeError<I2C>> {
         self.i2c.set_mode(SensorMode::Forced)?;
-        let delay_period = self.calculate_delay_period_us();
+        let delay_period = self.current_sensor_config.calculate_delay_period_us();
         self.i2c.delay(delay_period);
         // try read new values 5 times and delay if no new data is available or the sensor is still measuring
         for _i in 0..5 {
@@ -146,33 +144,7 @@ where
         // Shouldn't happen
         Err(BmeError::MeasuringTimeOut)
     }
-    // calculates the delay period needed for a measurement in microseconds.
-    // Also add the heater duration in microseconds like the Adafruit driver does.
-    // https://github.com/adafruit/Adafruit_BME680/blob/master/bme68x.c#L490
-    fn calculate_delay_period_us(&self) -> u32 {
-        let mut measurement_cycles: u32 = 0;
-        if let Some(temperature_oversampling) = &self.current_sensor_config.temperature_oversampling {
-            measurement_cycles += temperature_oversampling.cycles();
-        }
-        if let Some(humidity_oversampling) = &self.current_sensor_config.humidity_oversampling {
-            measurement_cycles += humidity_oversampling.cycles();
-        }
-        if let Some(pressure_oversampling) = &self.current_sensor_config.pressure_oversampling {
-            measurement_cycles += pressure_oversampling.cycles();
-        }
-        let mut measurement_duration = measurement_cycles * CYCLE_DURATION;
 
-        // https://github.com/adafruit/Adafruit_BME680/blob/master/Adafruit_BME680.cpp#L311
-        if let Some(gas_config) = &self.current_sensor_config.gas_config {
-            measurement_duration += gas_config.heater_duration().as_micros() as u32;
-        }
-
-        measurement_duration += TPH_SWITCHING_DURATION;
-        measurement_duration += GAS_MEAS_DURATION;
-        measurement_duration += WAKEUP_DURATION;
-
-        measurement_duration
-    }
 
     pub fn get_calibration_data(&self) -> &CalibrationData {
         &self.calibration_data

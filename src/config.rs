@@ -6,6 +6,7 @@ use crate::{
     constants::{GAS_ARRAY_1, GAS_ARRAY_2, MAX_HEATER_TEMPERATURE, MAX_HEATER_WAIT_DURATION_MS},
     data::CalibrationData,
 };
+use crate::constants::{CYCLE_DURATION, GAS_MEAS_DURATION, TPH_SWITCHING_DURATION, WAKEUP_DURATION};
 
 /// Use Primary if SDO connector of the sensor is connected to ground and Secondary if SDO is connected to Vin.
 #[repr(u8)]
@@ -214,6 +215,35 @@ impl Configuration {
             config: Configuration::default(),
         }
     }
+
+    // calculates the delay period needed for a measurement in microseconds.
+    // Also add the heater duration in microseconds like the Adafruit driver does.
+    // https://github.com/adafruit/Adafruit_BME680/blob/master/bme68x.c#L490
+    pub(crate) fn calculate_delay_period_us(&self) -> u32 {
+        let mut measurement_cycles: u32 = 0;
+        if let Some(temperature_oversampling) = &self.temperature_oversampling {
+            measurement_cycles += temperature_oversampling.cycles();
+        }
+        if let Some(humidity_oversampling) = &self.humidity_oversampling {
+            measurement_cycles += humidity_oversampling.cycles();
+        }
+        if let Some(pressure_oversampling) = &self.pressure_oversampling {
+            measurement_cycles += pressure_oversampling.cycles();
+        }
+        let mut measurement_duration = measurement_cycles * CYCLE_DURATION;
+
+        // https://github.com/adafruit/Adafruit_BME680/blob/master/Adafruit_BME680.cpp#L311
+        if let Some(gas_config) = &self.gas_config {
+            measurement_duration += gas_config.heater_duration().as_micros() as u32;
+        }
+
+        measurement_duration += TPH_SWITCHING_DURATION;
+        measurement_duration += GAS_MEAS_DURATION;
+        measurement_duration += WAKEUP_DURATION;
+
+        measurement_duration
+    }
+
 }
 pub struct ConfigBuilder {
     config: Configuration,

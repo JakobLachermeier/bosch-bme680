@@ -152,7 +152,7 @@ mod tests {
     use crate::data::{
         calculate_humidity, calculate_pressure, calculate_temperature, CalibrationData,
     };
-    use approx::{assert_abs_diff_eq, assert_relative_eq, relative_eq};
+    use approx::{assert_abs_diff_eq};
 
     static CALIBRATION_DATA: CalibrationData = CalibrationData {
         par_t1: 25942,

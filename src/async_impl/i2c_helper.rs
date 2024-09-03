@@ -98,7 +98,7 @@ where
     /// Soft resets and checks device if device id matches the expected device id
     pub async fn init(&mut self) -> Result<(), BmeError<I2C>> {
         self.soft_reset().await?;
-        self.delayer.delay_ms(DELAY_PERIOD_US).await;
+        self.delayer.delay_us(DELAY_PERIOD_US).await;
         let chip_id = self.get_chip_id().await?;
         if chip_id != CHIP_ID {
             Err(BmeError::UnexpectedChipId(chip_id))
@@ -162,7 +162,7 @@ where
                     debug!("Setting control register to: {control_register:?}");
                     self.set_register(ADDR_CONTROL_MODE, control_register.0)
                         .await?;
-                    self.delayer.delay_ms(DELAY_PERIOD_US).await;
+                    self.delayer.delay_us(DELAY_PERIOD_US).await;
                 }
             }
         };
@@ -190,7 +190,7 @@ where
         &mut self,
         conf: &Configuration,
         calibration_data: &CalibrationData,
-    ) -> Result<RawConfig<[u8; LEN_CONFIG]>, BmeError<I2C>> {
+    ) -> Result<(), BmeError<I2C>> {
         let mut current_conf = self.get_config().await?;
         current_conf.apply_config(conf);
 
@@ -200,7 +200,7 @@ where
         if let Some(gas_conf) = &conf.gas_config {
             self.set_gas_config(gas_conf, calibration_data).await?;
         }
-        Ok(current_conf)
+        Ok(())
     }
     async fn set_gas_config(
         &mut self,

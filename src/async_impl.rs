@@ -1,7 +1,5 @@
 use self::i2c_helper::I2CHelper;
-use crate::bitfields::RawConfig;
 use crate::config::{Configuration, SensorMode, Variant};
-use crate::constants::LEN_CONFIG;
 use crate::data::CalibrationData;
 use crate::BmeError;
 use crate::DeviceAddress;
@@ -37,7 +35,7 @@ struct State {
     // calibration data that was saved on the sensor
     calibration_data: CalibrationData,
     // used to calculate measurement delay period
-    sensor_config: RawConfig<[u8; LEN_CONFIG]>,
+    current_sensor_config: Configuration,
     // needed to calculate the gas resistance since it differs between bme680 and bme688
     variant: Variant,
 }
@@ -78,14 +76,14 @@ where
     pub async fn initialize(&mut self, sensor_config: &Configuration) -> Result<(), BmeError<I2C>> {
         self.i2c.init().await?;
         let calibration_data = self.i2c.get_calibration_data().await?;
-        let sensor_config = self
+        self
             .i2c
             .set_config(sensor_config, &calibration_data)
             .await?;
         let variant = self.i2c.get_variant_id().await?;
         self.state = Some(State {
             calibration_data,
-            sensor_config,
+            current_sensor_config: sensor_config.clone(),
             variant,
         });
         Ok(())
@@ -99,9 +97,9 @@ where
     pub async fn set_configuration(&mut self, config: &Configuration) -> Result<(), BmeError<I2C>> {
         let state = self.state.as_mut().ok_or(BmeError::Uninitialized)?;
         self.i2c.set_mode(SensorMode::Sleep).await?;
-        let new_config = self.i2c.set_config(config, &state.calibration_data).await?;
+        self.i2c.set_config(config, &state.calibration_data).await?;
         // current conf is used to calculate measurement delay period
-        state.sensor_config = new_config;
+        state.current_sensor_config = config.clone();
         Ok(())
     }
     /// Trigger a new measurement.
@@ -113,7 +111,9 @@ where
     pub async fn measure(&mut self) -> Result<MeasurmentData, BmeError<I2C>> {
         let state = self.state.as_mut().ok_or(BmeError::Uninitialized)?;
         self.i2c.set_mode(SensorMode::Forced).await?;
-        let delay_period = state.sensor_config.calculate_delay_period_us();
+        let delay_period = state.current_sensor_config.calculate_delay_period_us();
+
+
         self.i2c.delay(delay_period).await;
         // try read new values 5 times and delay if no new data is available or the sensor is still measuring
         for _i in 0..5 {
