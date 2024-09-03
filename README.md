@@ -26,3 +26,24 @@ fn main() -> ! {
     }
 }
 ```
+
+## [`embedded-hal-async`] usage
+
+This crate has optional support for [`embedded-hal-async`], which provides
+asynchronous versions of the [`embedded-hal`] traits. To avoid an unnecessary
+dependency on `embedded-hal-async` for projects which do not require it, the
+`embedded-hal-async` support is an optional feature.
+
+In order to use the `embedded-hal-async` driver, add the following to your
+`Cargo.toml`:
+
+```toml
+[dependencies]
+bosch-bme680 = { version = "1.0.3", features = ["embedded-hal-async"] }
+```
+
+Then, construct an instance of the `AsyncBme680` struct using the
+`embedded_hal_async` `I2c` and `Delay` traits.
+
+[`embedded-hal`]: https://crates.io/crates/embedded-hal-async
+[`embedded-hal-async`]: https://crates.io/crates/embedded-hal-async

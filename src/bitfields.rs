@@ -49,6 +49,24 @@ impl RawConfig<[u8; 5]> {
             self.set_heater_profile(HeaterProfile::Profile0);
         }
     }
+
+    pub(crate) fn calculate_delay_period_us(&self) -> u32 {
+        use crate::constants::{
+            CYCLE_DURATION, GAS_MEAS_DURATION, TPH_SWITCHING_DURATION, WAKEUP_DURATION,
+        };
+        let mut measurement_cycles: u32 = 0;
+        measurement_cycles += self.temperature_oversampling().cycles();
+        measurement_cycles += self.humidity_oversampling().cycles();
+        measurement_cycles += self.pressure_oversampling().cycles();
+
+        let mut measurement_duration = measurement_cycles * CYCLE_DURATION;
+        measurement_duration += TPH_SWITCHING_DURATION;
+        measurement_duration += GAS_MEAS_DURATION;
+
+        measurement_duration += WAKEUP_DURATION;
+
+        measurement_duration
+    }
 }
 
 bitfield! {
