@@ -33,7 +33,6 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-extern crate alloc;
 
 use self::config::{SensorMode, Variant};
 
