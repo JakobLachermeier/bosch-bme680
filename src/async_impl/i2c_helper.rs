@@ -223,8 +223,46 @@ where
     }
 }
 
+
 #[cfg(test)]
 mod i2c_tests {
-    // TODO: embedded_hal_mock doesn't currently have support for the async I2C
-    // trait. When that's added, we should add tests here.
+    extern crate std;
+    use super::I2CHelper;
+    use crate::{
+        config::DeviceAddress,
+        constants::{ADDR_CHIP_ID, ADDR_SOFT_RESET, CHIP_ID, CMD_SOFT_RESET},
+    };
+    use embedded_hal_mock::eh1::{
+        delay::NoopDelay,
+        i2c::{Mock as I2cMock, Transaction as I2cTransaction},
+    };
+    use std::vec;
+    use std::vec::Vec;
+    // primary device address
+    const DEVICE_ADDRESS: u8 = 0x76;
+    fn setup() -> Vec<I2cTransaction> {
+        let mut transactions = vec![];
+        // reset chip
+        transactions.push(I2cTransaction::write(
+            DEVICE_ADDRESS,
+            vec![ADDR_SOFT_RESET, CMD_SOFT_RESET],
+        ));
+        // get chip id
+        transactions.push(I2cTransaction::write_read(
+            DEVICE_ADDRESS,
+            vec![ADDR_CHIP_ID],
+            vec![CHIP_ID],
+        ));
+        transactions
+    }
+    // i2c mock tests
+    #[tokio::test]
+    async fn test_setup_helper() {
+        let transactions = setup();
+        let i2c_interface = I2cMock::new(&transactions);
+        let mut i2c_helper =
+            I2CHelper::new(i2c_interface, DeviceAddress::Primary, NoopDelay {}, 20);
+        i2c_helper.init().await.unwrap();
+        i2c_helper.into_inner().done();
+    }
 }

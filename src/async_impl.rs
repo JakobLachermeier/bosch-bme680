@@ -142,6 +142,183 @@ where
 
 #[cfg(test)]
 mod library_tests {
-    // TODO: embedded_hal_mock doesn't currently have support for the async I2C
-    // trait. When that's added, we should add tests here.
+    extern crate std;
+
+    use std::vec;
+    use std::vec::Vec;
+
+    use crate::constants::{
+        ADDR_CHIP_ID, ADDR_CONFIG, ADDR_CONTROL_MODE, ADDR_GAS_WAIT_0, ADDR_REG_COEFF1,
+        ADDR_REG_COEFF2, ADDR_REG_COEFF3, ADDR_RES_HEAT_0, ADDR_SOFT_RESET, ADDR_VARIANT_ID,
+        CHIP_ID, CMD_SOFT_RESET, LEN_COEFF1, LEN_COEFF2, LEN_COEFF3,
+    };
+    use crate::i2c_helper::extract_calibration_data;
+
+    const CALIBRATION_DATA: [u8; 42] = [
+        179, 193, 176, 188, 21, 51, 11, 29, 222, 179, 184, 1, 230, 47, 209, 22, 154, 34, 237, 70,
+        148, 134, 44, 13, 204, 61, 206, 69, 18, 43, 124, 164, 92, 132, 19, 63, 29, 28, 201, 140,
+        70, 24,
+    ];
+
+    use super::*;
+    use embedded_hal_mock::eh1::delay::NoopDelay;
+    use embedded_hal_mock::eh1::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
+    use test_log::test;
+    use crate::bitfields::RawConfig;
+
+    fn setup_transactions() -> Vec<I2cTransaction> {
+        let mut transactions = vec![];
+        let calibration_data_1 = CALIBRATION_DATA[0..LEN_COEFF1].to_vec();
+        let calibration_data_2 = CALIBRATION_DATA[LEN_COEFF1..LEN_COEFF1 + LEN_COEFF2].to_vec();
+        let calibration_data_3 = CALIBRATION_DATA
+            [LEN_COEFF1 + LEN_COEFF2..LEN_COEFF1 + LEN_COEFF2 + LEN_COEFF3]
+            .to_vec();
+        assert_eq!(calibration_data_1.len(), LEN_COEFF1);
+        assert_eq!(calibration_data_2.len(), LEN_COEFF2);
+        assert_eq!(calibration_data_3.len(), LEN_COEFF3);
+        // soft reset
+        transactions.push(I2cTransaction::write(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_SOFT_RESET, CMD_SOFT_RESET],
+        ));
+        // check device id
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_CHIP_ID],
+            vec![CHIP_ID],
+        ));
+        // calibration_data
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_REG_COEFF1],
+            calibration_data_1,
+        ));
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_REG_COEFF2],
+            calibration_data_2,
+        ));
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_REG_COEFF3],
+            calibration_data_3,
+        ));
+        // set config
+        // 1. get current config by writing to register 0x71 with buffer len 5.
+        // 2. apply default user facing config to the default values of the sensor.
+        // 3. write gas_wait_0 and res_heat_0
+        // config defaults to 0s
+        // 1.
+        let default_config = [0u8; 5];
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_CONFIG],
+            default_config.into(),
+        ));
+        // 2.
+        let user_config = Configuration::default();
+        let mut raw_config = RawConfig(default_config);
+        raw_config.apply_config(&user_config);
+        // add unique write for each register
+        raw_config
+            .0
+            .into_iter()
+            .enumerate()
+            .for_each(|(register_offset, register_content)| {
+                transactions.push(I2cTransaction::write(
+                    DeviceAddress::Primary.into(),
+                    vec![ADDR_CONFIG + register_offset as u8, register_content],
+                ));
+            });
+        // 3.
+        let gas_config = user_config.gas_config.unwrap();
+        let gas_wait_0 = gas_config.calc_gas_wait();
+        let res_heat_0 = gas_config.calc_res_heat(&extract_calibration_data(CALIBRATION_DATA), 20);
+        transactions.push(I2cTransaction::write(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_GAS_WAIT_0, gas_wait_0],
+        ));
+        transactions.push(I2cTransaction::write(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_RES_HEAT_0, res_heat_0],
+        ));
+        // get chip variant
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_VARIANT_ID],
+            vec![0],
+        ));
+        transactions
+    }
+    fn add_sleep_to_sleep_transactions(transactions: &mut Vec<I2cTransaction>) {
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_CONTROL_MODE],
+            // sleep mode
+            vec![0b101011_00],
+        ));
+    }
+    #[test]
+    fn test_setup() {
+        let transactions = setup_transactions();
+        let i2c_interface = I2cMock::new(&transactions);
+        let bme = Bme680::new(
+            i2c_interface,
+            DeviceAddress::Primary,
+            NoopDelay::new(),
+            &Configuration::default(),
+            20,
+        )
+        .unwrap();
+        bme.into_inner().done();
+    }
+
+    #[test]
+    fn test_set_mode_forced_to_sleep() {
+        let mut transactions = setup_transactions();
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_CONTROL_MODE],
+            // sleep mode
+            vec![0b101011_01],
+        ));
+        transactions.push(I2cTransaction::write(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_CONTROL_MODE, 0b101011_00],
+        ));
+        transactions.push(I2cTransaction::write_read(
+            DeviceAddress::Primary.into(),
+            vec![ADDR_CONTROL_MODE],
+            // sleep mode
+            vec![0b101011_00],
+        ));
+        // Transactions: Get(Forced) -> Set(Sleep) -> Get(Sleep)
+        let i2c_interface = I2cMock::new(&transactions);
+        let mut bme = Bme680::new(
+            i2c_interface,
+            DeviceAddress::Primary,
+            NoopDelay::new(),
+            &Configuration::default(),
+            20,
+        )
+        .unwrap();
+        bme.put_to_sleep().unwrap();
+        bme.into_inner().done();
+    }
+    #[test]
+    fn test_set_mode_sleep_to_sleep() {
+        let mut transactions = setup_transactions();
+        add_sleep_to_sleep_transactions(&mut transactions);
+        let i2c_interface = I2cMock::new(&transactions);
+        let mut bme = Bme680::new(
+            i2c_interface,
+            DeviceAddress::Primary,
+            NoopDelay::new(),
+            &Configuration::default(),
+            20,
+        )
+        .unwrap();
+        bme.put_to_sleep().unwrap();
+        bme.into_inner().done();
+    }
 }
