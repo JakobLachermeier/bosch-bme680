@@ -76,8 +76,7 @@ where
     pub async fn initialize(&mut self, sensor_config: &Configuration) -> Result<(), BmeError<I2C>> {
         self.i2c.init().await?;
         let calibration_data = self.i2c.get_calibration_data().await?;
-        self
-            .i2c
+        self.i2c
             .set_config(sensor_config, &calibration_data)
             .await?;
         let variant = self.i2c.get_variant_id().await?;
@@ -88,7 +87,9 @@ where
         });
         Ok(())
     }
-
+    pub async fn put_to_sleep(&mut self) -> Result<(), BmeError<I2C>> {
+        self.i2c.set_mode(SensorMode::Sleep).await
+    }
     /// Returns the wrapped i2c interface
     pub fn into_inner(self) -> I2C {
         self.i2c.into_inner()
@@ -112,7 +113,6 @@ where
         let state = self.state.as_mut().ok_or(BmeError::Uninitialized)?;
         self.i2c.set_mode(SensorMode::Forced).await?;
         let delay_period = state.current_sensor_config.calculate_delay_period_us();
-
 
         self.i2c.delay(delay_period).await;
         // try read new values 5 times and delay if no new data is available or the sensor is still measuring
@@ -161,10 +161,9 @@ mod library_tests {
     ];
 
     use super::*;
+    use crate::bitfields::RawConfig;
     use embedded_hal_mock::eh1::delay::NoopDelay;
     use embedded_hal_mock::eh1::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
-    use test_log::test;
-    use crate::bitfields::RawConfig;
 
     fn setup_transactions() -> Vec<I2cTransaction> {
         let mut transactions = vec![];
@@ -258,23 +257,17 @@ mod library_tests {
             vec![0b101011_00],
         ));
     }
-    #[test]
-    fn test_setup() {
+    #[tokio::test]
+    async fn test_setup() {
         let transactions = setup_transactions();
         let i2c_interface = I2cMock::new(&transactions);
-        let bme = Bme680::new(
-            i2c_interface,
-            DeviceAddress::Primary,
-            NoopDelay::new(),
-            &Configuration::default(),
-            20,
-        )
-        .unwrap();
+        let mut bme = AsyncBme680::new(i2c_interface, DeviceAddress::Primary, NoopDelay::new(), 20);
+        bme.initialize(&Configuration::default()).await.unwrap();
         bme.into_inner().done();
     }
 
-    #[test]
-    fn test_set_mode_forced_to_sleep() {
+    #[tokio::test]
+    async fn test_set_mode_forced_to_sleep() {
         let mut transactions = setup_transactions();
         transactions.push(I2cTransaction::write_read(
             DeviceAddress::Primary.into(),
@@ -294,31 +287,19 @@ mod library_tests {
         ));
         // Transactions: Get(Forced) -> Set(Sleep) -> Get(Sleep)
         let i2c_interface = I2cMock::new(&transactions);
-        let mut bme = Bme680::new(
-            i2c_interface,
-            DeviceAddress::Primary,
-            NoopDelay::new(),
-            &Configuration::default(),
-            20,
-        )
-        .unwrap();
-        bme.put_to_sleep().unwrap();
+        let mut bme = AsyncBme680::new(i2c_interface, DeviceAddress::Primary, NoopDelay::new(), 20);
+        bme.initialize(&Configuration::default()).await.unwrap();
+        bme.put_to_sleep().await.unwrap();
         bme.into_inner().done();
     }
-    #[test]
-    fn test_set_mode_sleep_to_sleep() {
+    #[tokio::test]
+    async fn test_set_mode_sleep_to_sleep() {
         let mut transactions = setup_transactions();
         add_sleep_to_sleep_transactions(&mut transactions);
         let i2c_interface = I2cMock::new(&transactions);
-        let mut bme = Bme680::new(
-            i2c_interface,
-            DeviceAddress::Primary,
-            NoopDelay::new(),
-            &Configuration::default(),
-            20,
-        )
-        .unwrap();
-        bme.put_to_sleep().unwrap();
+        let mut bme = AsyncBme680::new(i2c_interface, DeviceAddress::Primary, NoopDelay::new(), 20);
+        bme.initialize(&Configuration::default()).await.unwrap();
+        bme.put_to_sleep().await.unwrap();
         bme.into_inner().done();
     }
 }
