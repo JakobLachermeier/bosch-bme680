@@ -33,6 +33,8 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![allow(clippy::excessive_precision)]
+#![allow(clippy::unusual_byte_groupings)]
 
 use self::config::{SensorMode, Variant};
 
@@ -40,7 +42,6 @@ use data::CalibrationData;
 use embedded_hal::delay::DelayNs;
 use embedded_hal::i2c::{I2c, SevenBitAddress};
 use i2c_helper::I2CHelper;
-
 
 pub use self::config::{Configuration, DeviceAddress, GasConfig, IIRFilter, Oversampling};
 use crate::data::{calculate_humidity, calculate_pressure, calculate_temperature};
@@ -144,7 +145,6 @@ where
         Err(BmeError::MeasuringTimeOut)
     }
 
-
     pub fn get_calibration_data(&self) -> &CalibrationData {
         &self.calibration_data
     }
@@ -171,10 +171,9 @@ mod library_tests {
     ];
 
     use super::*;
+    use crate::bitfields::RawConfig;
     use embedded_hal_mock::eh1::delay::NoopDelay;
     use embedded_hal_mock::eh1::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
-    use test_log::test;
-    use crate::bitfields::RawConfig;
 
     fn setup_transactions() -> Vec<I2cTransaction> {
         let mut transactions = vec![];

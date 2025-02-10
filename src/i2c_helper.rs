@@ -305,18 +305,12 @@ mod i2c_tests {
     // primary device address
     const DEVICE_ADDRESS: u8 = 0x76;
     fn setup() -> Vec<I2cTransaction> {
-        let mut transactions = vec![];
-        // reset chip
-        transactions.push(I2cTransaction::write(
-            DEVICE_ADDRESS,
-            vec![ADDR_SOFT_RESET, CMD_SOFT_RESET],
-        ));
-        // get chip id
-        transactions.push(I2cTransaction::write_read(
-            DEVICE_ADDRESS,
-            vec![ADDR_CHIP_ID],
-            vec![CHIP_ID],
-        ));
+        let transactions = vec![
+            // reset chip
+            I2cTransaction::write(DEVICE_ADDRESS, vec![ADDR_SOFT_RESET, CMD_SOFT_RESET]),
+            // get chip id
+            I2cTransaction::write_read(DEVICE_ADDRESS, vec![ADDR_CHIP_ID], vec![CHIP_ID]),
+        ];
         transactions
     }
     // i2c mock tests
