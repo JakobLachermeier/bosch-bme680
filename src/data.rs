@@ -36,6 +36,7 @@ pub struct CalibrationData {
 
 /// Measurment data returned from the sensor
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MeasurmentData {
     /// Temperature in °C
     pub temperature: f32,
@@ -152,7 +153,7 @@ mod tests {
     use crate::data::{
         calculate_humidity, calculate_pressure, calculate_temperature, CalibrationData,
     };
-    use approx::{assert_abs_diff_eq};
+    use approx::assert_abs_diff_eq;
 
     static CALIBRATION_DATA: CalibrationData = CalibrationData {
         par_t1: 25942,
