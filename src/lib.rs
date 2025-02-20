@@ -33,6 +33,7 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![warn(clippy::pedantic)]
 #![allow(clippy::excessive_precision)]
 #![allow(clippy::unusual_byte_groupings)]
 
