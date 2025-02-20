@@ -57,9 +57,9 @@ impl Variant {
     ) -> f32 {
         match self {
             Self::GasLow => {
-                let adc_gas = adc_gas as f32;
+                let adc_gas = f32::from(adc_gas);
                 let gas_range_f = (1 << gas_range) as f32;
-                let var1 = 1340. + (5. * range_switching_error as f32);
+                let var1 = 1340. + (5. * f32::from(range_switching_error));
                 let var2 = var1 * (1. + GAS_ARRAY_1[gas_range] / 100.);
                 let var3 = 1. + (GAS_ARRAY_2[gas_range] / 100.);
 
@@ -67,7 +67,7 @@ impl Variant {
             }
             Self::GasHigh => {
                 let var1 = 262144_u32 >> gas_range;
-                let mut var2 = adc_gas as i32 - 512_i32;
+                let mut var2 = i32::from(adc_gas) - 512_i32;
                 var2 *= 3;
                 var2 += 4096;
                 1000000. * var1 as f32 / var2 as f32
@@ -118,7 +118,7 @@ impl Default for GasConfig {
     }
 }
 impl GasConfig {
-    pub fn calc_gas_wait(&self) -> u8 {
+    #[must_use] pub fn calc_gas_wait(&self) -> u8 {
         let mut duration = self.heater_duration.as_millis() as u16;
         let mut factor: u8 = 0;
 
@@ -133,7 +133,7 @@ impl GasConfig {
             duration as u8 + factor * 64
         }
     }
-    pub fn calc_res_heat(
+    #[must_use] pub fn calc_res_heat(
         &self,
         calibration_data: &CalibrationData,
         ambient_temperature: i32,
@@ -147,19 +147,19 @@ impl GasConfig {
         } else {
             self.heater_target_temperature
         };
-        let var1 = ((ambient_temperature * calibration_data.par_gh3 as i32) / 1000) * 256;
-        let var2 = (calibration_data.par_gh1 as i32 + 784)
-            * (((((calibration_data.par_gh2 as i32 + 154009) * target_temperature as i32 * 5)
+        let var1 = ((ambient_temperature * i32::from(calibration_data.par_gh3)) / 1000) * 256;
+        let var2 = (i32::from(calibration_data.par_gh1) + 784)
+            * (((((i32::from(calibration_data.par_gh2) + 154009) * i32::from(target_temperature) * 5)
                 / 100)
                 + 3276800)
                 / 10);
         let var3 = var1 + (var2 / 2);
-        let var4 = var3 / (calibration_data.res_heat_range as i32 + 4);
-        let var5 = (131 * calibration_data.res_heat_val as i32) + 65536;
+        let var4 = var3 / (i32::from(calibration_data.res_heat_range) + 4);
+        let var5 = (131 * i32::from(calibration_data.res_heat_val)) + 65536;
         let heatr_res_x100 = ((var4 / var5) - 250) * 34;
         ((heatr_res_x100 + 50) / 100) as u8
     }
-    pub fn heater_duration(&self) -> Duration {
+    #[must_use] pub fn heater_duration(&self) -> Duration {
         self.heater_duration
     }
 }
@@ -195,7 +195,7 @@ impl Default for Configuration {
     /// Temperature oversampling: By2,
     /// Pressure oversampling: By16,
     /// Humidity oversampling: By1,
-    /// IIRFilter: Coeff1,
+    /// `IIRFilter`: Coeff1,
     /// Gas config:
     /// heating duration: 150ms,
     /// heater target temperature: 300°C
@@ -210,7 +210,7 @@ impl Default for Configuration {
     }
 }
 impl Configuration {
-    pub fn builder() -> ConfigBuilder {
+    #[must_use] pub fn builder() -> ConfigBuilder {
         ConfigBuilder {
             config: Configuration::default(),
         }
@@ -286,7 +286,7 @@ pub enum Oversampling {
     By16,
 }
 impl Oversampling {
-    pub fn cycles(&self) -> u32 {
+    #[must_use] pub fn cycles(&self) -> u32 {
         match self {
             Self::Skipped => 0,
             Self::By1 => 1,

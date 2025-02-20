@@ -100,10 +100,10 @@ where
         self.soft_reset().await?;
         self.delayer.delay_us(DELAY_PERIOD_US).await;
         let chip_id = self.get_chip_id().await?;
-        if chip_id != CHIP_ID {
-            Err(BmeError::UnexpectedChipId(chip_id))
-        } else {
+        if chip_id == CHIP_ID {
             Ok(())
+        } else {
+            Err(BmeError::UnexpectedChipId(chip_id))
         }
     }
     pub async fn soft_reset(&mut self) -> Result<(), BmeError<I2C>> {
@@ -140,7 +140,7 @@ where
         .await?;
         Ok(i2c_helper::extract_calibration_data(coeff_buffer))
     }
-    /// Puts the sensor to sleep and adjusts SensorMode afterwards
+    /// Puts the sensor to sleep and adjusts `SensorMode` afterwards
     pub async fn set_mode(&mut self, mode: SensorMode) -> Result<(), BmeError<I2C>> {
         // 1. Read ctr_meas register
         // 2. Set last 2 bits to 00 (sleep) if not already in sleep mode

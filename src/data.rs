@@ -45,7 +45,7 @@ pub struct MeasurmentData {
     /// Pressure in hPa
     pub pressure: f32,
     /// Gas resistance in Ohms
-    /// None if gas measurment is disabled or gas measurment hasn't finished in time according to the gas_measuring bit.
+    /// None if gas measurment is disabled or gas measurment hasn't finished in time according to the `gas_measuring` bit.
     pub gas_resistance: Option<f32>,
 }
 
@@ -78,20 +78,20 @@ impl MeasurmentData {
 
         Some(MeasurmentData {
             temperature,
-            gas_resistance,
             humidity,
             pressure,
+            gas_resistance,
         })
     }
 }
 
 pub fn calculate_temperature(adc_temp: u32, calibration_data: &CalibrationData) -> (f32, f32) {
     let temp_adc = adc_temp as f32;
-    let var_1 = ((temp_adc / 16384.) - (calibration_data.par_t1 as f32 / 1024.))
-        * calibration_data.par_t2 as f32;
-    let var_2 = (((temp_adc / 131072.) - (calibration_data.par_t1 as f32 / 8192.))
-        * ((temp_adc / 131072.) - (calibration_data.par_t1 as f32 / 8192.)))
-        * (calibration_data.par_t3 as f32 * 16.);
+    let var_1 = ((temp_adc / 16384.) - (f32::from(calibration_data.par_t1) / 1024.))
+        * f32::from(calibration_data.par_t2);
+    let var_2 = (((temp_adc / 131072.) - (f32::from(calibration_data.par_t1) / 8192.))
+        * ((temp_adc / 131072.) - (f32::from(calibration_data.par_t1) / 8192.)))
+        * (f32::from(calibration_data.par_t3) * 16.);
     // store for use in pressure and hummidity calculation
     let t_fine = var_1 + var_2;
     let calc_temp = t_fine / 5120.;
@@ -101,23 +101,23 @@ pub fn calculate_temperature(adc_temp: u32, calibration_data: &CalibrationData) 
 pub fn calculate_pressure(adc_press: u32, calibration_data: &CalibrationData, t_fine: f32) -> f32 {
     let adc_press = adc_press as f32;
     let var1 = (t_fine / 2.) - 64000.;
-    let var2 = var1 * var1 * (calibration_data.par_p6 as f32 / 131072.);
-    let var2 = var2 + (var1 * calibration_data.par_p5 as f32 * 2.);
-    let var2 = (var2 / 4.) + (calibration_data.par_p4 as f32 * 65536.);
-    let var1 = (((calibration_data.par_p3 as f32 * var1 * var1) / 16384.)
-        + (calibration_data.par_p2 as f32 * var1))
+    let var2 = var1 * var1 * (f32::from(calibration_data.par_p6) / 131072.);
+    let var2 = var2 + (var1 * f32::from(calibration_data.par_p5) * 2.);
+    let var2 = (var2 / 4.) + (f32::from(calibration_data.par_p4) * 65536.);
+    let var1 = (((f32::from(calibration_data.par_p3) * var1 * var1) / 16384.)
+        + (f32::from(calibration_data.par_p2) * var1))
         / 524288.;
-    let var1 = (1. + (var1 / 32768.)) * calibration_data.par_p1 as f32;
+    let var1 = (1. + (var1 / 32768.)) * f32::from(calibration_data.par_p1);
     let mut calc_pres = 1048576. - adc_press;
     if var1 as i16 != 0 {
         calc_pres = ((calc_pres - (var2 / 4096.)) * 6250.) / var1;
-        let var1 = (calibration_data.par_p9 as f32 * calc_pres * calc_pres) / 2147483648.;
-        let var2 = calc_pres * (calibration_data.par_p8 as f32 / 32768.);
+        let var1 = (f32::from(calibration_data.par_p9) * calc_pres * calc_pres) / 2147483648.;
+        let var2 = calc_pres * (f32::from(calibration_data.par_p8) / 32768.);
         let var3 = (calc_pres / 256.)
             * (calc_pres / 256.)
             * (calc_pres / 256.)
-            * (calibration_data.par_p10 as f32 / 131072.);
-        calc_pres += (var1 + var2 + var3 + (calibration_data.par_p7 as f32 * 128.)) / 16.;
+            * (f32::from(calibration_data.par_p10) / 131072.);
+        calc_pres += (var1 + var2 + var3 + (f32::from(calibration_data.par_p7) * 128.)) / 16.;
     } else {
         calc_pres = 0.;
     }
@@ -125,18 +125,18 @@ pub fn calculate_pressure(adc_press: u32, calibration_data: &CalibrationData, t_
 }
 
 pub fn calculate_humidity(adc_hum: u16, calibration_data: &CalibrationData, t_fine: f32) -> f32 {
-    let adc_hum = adc_hum as f32;
+    let adc_hum = f32::from(adc_hum);
     let temp_comp = t_fine / 5120.;
     let var1 = (adc_hum)
-        - ((calibration_data.par_h1 as f32 * 16.)
-            + ((calibration_data.par_h3 as f32 / 2.) * temp_comp));
+        - ((f32::from(calibration_data.par_h1) * 16.)
+            + ((f32::from(calibration_data.par_h3) / 2.) * temp_comp));
     let var2 = var1
-        * ((calibration_data.par_h2 as f32 / 262144.)
+        * ((f32::from(calibration_data.par_h2) / 262144.)
             * (1.
-                + ((calibration_data.par_h4 as f32 / 16384.) * temp_comp)
-                + ((calibration_data.par_h5 as f32 / 1048576.) * temp_comp * temp_comp)));
-    let var3 = calibration_data.par_h6 as f32 / 16384.;
-    let var4 = calibration_data.par_h7 as f32 / 2097152.;
+                + ((f32::from(calibration_data.par_h4) / 16384.) * temp_comp)
+                + ((f32::from(calibration_data.par_h5) / 1048576.) * temp_comp * temp_comp)));
+    let var3 = f32::from(calibration_data.par_h6) / 16384.;
+    let var4 = f32::from(calibration_data.par_h7) / 2097152.;
     let mut calc_hum = var2 + ((var3 + (var4 * temp_comp)) * var2 * var2);
     calc_hum = calc_hum.clamp(0., 100.);
     // Reference implemetation uses this.

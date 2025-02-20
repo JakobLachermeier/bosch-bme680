@@ -8,9 +8,9 @@ where
 {
     /// Error during I2C write operation.
     WriteError(I2C::Error),
-    /// Error during I2C WriteRead operation.
+    /// Error during I2C `WriteRead` operation.
     WriteReadError(I2C::Error),
-    /// Got an unexpected ChipId during sensor initalization.
+    /// Got an unexpected `ChipId` during sensor initalization.
     UnexpectedChipId(u8),
     /// After running the measurment the sensor blocks until the 'new data bit' of the sensor is set.
     /// Should this take more than 5 tries an error is returned instead of incorrect data.

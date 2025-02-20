@@ -102,10 +102,10 @@ where
         self.soft_reset()?;
         self.delayer.delay_us(DELAY_PERIOD_US);
         let chip_id = self.get_chip_id()?;
-        if chip_id != CHIP_ID {
-            Err(BmeError::UnexpectedChipId(chip_id))
-        } else {
+        if chip_id == CHIP_ID {
             Ok(self)
+        } else {
+            Err(BmeError::UnexpectedChipId(chip_id))
         }
     }
     pub fn soft_reset(&mut self) -> Result<(), BmeError<I2C>> {
@@ -139,7 +139,7 @@ where
         )?;
         Ok(extract_calibration_data(coeff_buffer))
     }
-    /// Puts the sensor to sleep and adjusts SensorMode afterwards
+    /// Puts the sensor to sleep and adjusts `SensorMode` afterwards
     pub fn set_mode(&mut self, mode: SensorMode) -> Result<(), BmeError<I2C>> {
         // 1. Read ctr_meas register
         // 2. Set last 2 bits to 00 (sleep) if not already in sleep mode
@@ -239,11 +239,11 @@ pub fn extract_calibration_data(coeff_buffer: [u8; 42]) -> CalibrationData {
     let par_p10 = coeff_buffer[22];
 
     // https://github.com/BoschSensortec/BME68x-Sensor-API/blob/master/bme68x.c#L1807
-    let par_h1 = ((coeff_buffer[BME68X_IDX_H1_MSB as usize] as u16) << 4)
-        | ((coeff_buffer[BME68X_IDX_H1_LSB as usize]) as u16 & BME68X_BIT_H1_DATA_MSK);
+    let par_h1 = (u16::from(coeff_buffer[BME68X_IDX_H1_MSB as usize]) << 4)
+        | (u16::from(coeff_buffer[BME68X_IDX_H1_LSB as usize]) & BME68X_BIT_H1_DATA_MSK);
     // https://github.com/BoschSensortec/BME68x-Sensor-API/blob/master/bme68x.c#L1810
-    let par_h2 = ((coeff_buffer[BME68X_IDX_H2_MSB as usize] as u16) << 4)
-        | ((coeff_buffer[BME68X_IDX_H2_LSB as usize] as u16) >> 4);
+    let par_h2 = (u16::from(coeff_buffer[BME68X_IDX_H2_MSB as usize]) << 4)
+        | (u16::from(coeff_buffer[BME68X_IDX_H2_LSB as usize]) >> 4);
     let par_h3 = coeff_buffer[26] as i8;
     let par_h4 = coeff_buffer[27] as i8;
     let par_h5 = coeff_buffer[28] as i8;
@@ -272,6 +272,7 @@ pub fn extract_calibration_data(coeff_buffer: [u8; 42]) -> CalibrationData {
         par_p7,
         par_p8,
         par_p9,
+        par_p10,
         par_h1,
         par_h2,
         par_h3,
@@ -279,7 +280,6 @@ pub fn extract_calibration_data(coeff_buffer: [u8; 42]) -> CalibrationData {
         par_h5,
         par_h6,
         par_h7,
-        par_p10,
         par_gh1,
         par_gh2,
         par_gh3,

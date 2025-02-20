@@ -63,7 +63,7 @@ bitfield! {
 pub struct GasWaitDuration(Duration);
 impl From<u8> for GasWaitDuration {
     fn from(val: u8) -> Self {
-        Self(Duration::from_millis(val as u64))
+        Self(Duration::from_millis(u64::from(val)))
     }
 }
 
@@ -165,7 +165,7 @@ impl From<u16> for GasADC {
         let mut gas_adc: u16 = gas_r_msb.into();
         // make space for 2 low bits
         gas_adc <<= 2;
-        gas_adc |= (gas_r_lsb >> 6) as u16;
+        gas_adc |= u16::from(gas_r_lsb >> 6);
         GasADC(gas_adc)
     }
 }
