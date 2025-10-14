@@ -118,6 +118,14 @@ impl Default for GasConfig {
     }
 }
 impl GasConfig {
+    #[must_use]
+    pub fn new(heater_duration: Duration, heater_target_temperature: u16) -> Self {
+        Self {
+            heater_duration,
+            heater_target_temperature,
+        }
+    }
+
     #[must_use] pub fn calc_gas_wait(&self) -> u8 {
         let mut duration = self.heater_duration.as_millis() as u16;
         let mut factor: u8 = 0;
